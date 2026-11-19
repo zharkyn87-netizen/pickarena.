@@ -1,0 +1,2151 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <meta name="theme-color" content="#047857">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="./icon.svg" type="image/svg+xml">
+    <title>Платформа спортивных прогнозов PickArena</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./supabase-config.js"></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            background: linear-gradient(180deg, #ecfdf5 0%, #eff6ff 45%, #f8fafc 100%);
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #e2e8f0; border-radius: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 8px; }
+        .pitch-gradient {
+            background: linear-gradient(135deg, #047857 0%, #10b981 45%, #0284c7 100%);
+        }
+        .duel-gradient {
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1d4ed8 100%);
+        }
+        .gold-gradient {
+            background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+        }
+        .pitch-pattern {
+            background-image: radial-gradient(rgba(255, 255, 255, 0.18) 1.5px, transparent 1.5px);
+            background-size: 16px 16px;
+        }
+    </style>
+</head>
+<body class="text-slate-900 min-h-screen flex flex-col selection:bg-emerald-600 selection:text-white overflow-x-hidden">
+
+    <!-- Toast Notification Banner -->
+    <div id="toast-container" class="fixed top-4 right-4 left-4 sm:left-auto z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-white text-slate-900 rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative">
+            <button onclick="closeAuthModal()" class="absolute top-5 right-5 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 p-2 rounded-full transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl pitch-gradient text-white mb-3 shadow-lg shadow-emerald-600/25">
+                    <svg class="w-8 h-8" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Trophy Handles -->
+                        <path d="M18 16H12C9.8 16 8 17.8 8 20V23C8 27.4 11.6 31 16 31H19" stroke="#FBBF24" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M46 16H52C54.2 16 56 17.8 56 20V23C56 27.4 52.4 31 48 31H45" stroke="#FBBF24" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                        <!-- Trophy Cup Body -->
+                        <path d="M18 12H46V26C46 33.7 39.7 40 32 40C24.3 40 18 33.7 18 26V12Z" fill="#FBBF24" stroke="white" stroke-width="2.5" stroke-linejoin="round"/>
+                        <!-- Trophy Stem & Base -->
+                        <path d="M32 40V49" stroke="#FBBF24" stroke-width="4" stroke-linecap="round"/>
+                        <path d="M22 54H42" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+                        <rect x="24" y="48" width="16" height="5" rx="2.5" fill="#FBBF24"/>
+                        <!-- Soccer Ball inside Trophy -->
+                        <circle cx="32" cy="24" r="7.5" fill="white"/>
+                        <path d="M32 19.5L35.2 22L34 25.8H30L28.8 22L32 19.5Z" fill="#047857"/>
+                        <path d="M32 17V19.5M35.2 22L38 20.8M34 25.8L36 28.5M30 25.8L28 28.5M28.8 22L26 20.8" stroke="#047857" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <h3 class="text-2xl font-black tracking-tight text-slate-900">PickArena</h3>
+                <p class="text-xs text-slate-500 mt-1">Футбольные дуэли прогнозистов</p>
+            </div>
+
+            <!-- Tabs Switcher -->
+            <div class="flex bg-slate-100 p-1.5 rounded-2xl mb-6">
+                <button id="auth-tab-login" onclick="setAuthMode('login')" class="flex-1 py-2 text-xs font-extrabold rounded-xl bg-emerald-600 text-white transition shadow-sm">Вход</button>
+                <button id="auth-tab-register" onclick="setAuthMode('register')" class="flex-1 py-2 text-xs font-bold rounded-xl text-slate-600 hover:text-slate-900 transition">Регистрация</button>
+            </div>
+
+            <!-- Login Form -->
+            <div id="login-form" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-1.5">Логин или ID</label>
+                    <input type="text" id="login-username" placeholder="например, admin или ivan" class="w-full px-4 py-3 rounded-xl bg-slate-100 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-semibold transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-1.5">Пароль</label>
+                    <input type="password" id="login-password" placeholder="••••••••" class="w-full px-4 py-3 rounded-xl bg-slate-100 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-semibold transition">
+                </div>
+                <button onclick="handleLogin()" class="w-full py-3.5 pitch-gradient hover:opacity-95 text-white font-extrabold rounded-xl shadow-lg shadow-emerald-600/30 transition transform active:scale-95 text-sm">Войти в игру</button>
+                
+
+            </div>
+
+            <!-- Register Form -->
+            <div id="register-form" class="space-y-4 hidden">
+                <div>
+                    <label class="block text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-1.5">Ваше имя / Никнейм</label>
+                    <input type="text" id="reg-name" placeholder="Алексей Смирнов" class="w-full px-4 py-3 rounded-xl bg-slate-100 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-semibold transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-1.5">Придумайте логин</label>
+                    <input type="text" id="reg-username" placeholder="alex2026" class="w-full px-4 py-3 rounded-xl bg-slate-100 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-semibold transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-1.5">Пароль</label>
+                    <input type="password" id="reg-password" placeholder="••••••••" class="w-full px-4 py-3 rounded-xl bg-slate-100 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-semibold transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-1.5">Желаемая лига</label>
+                    <select id="reg-league" class="w-full px-4 py-3 rounded-xl bg-slate-100 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-semibold transition">
+                        <option value="A">Лига А (Высший дивизион)</option>
+                        <option value="B" selected>Лига Б (Первый дивизион)</option>
+                    </select>
+                </div>
+                <button onclick="handleRegister()" class="w-full py-3.5 pitch-gradient hover:opacity-95 text-white font-extrabold rounded-xl shadow-lg shadow-emerald-600/30 transition transform active:scale-95 text-sm">Зарегистрироваться</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset Season Confirmation Modal -->
+    <div id="reset-confirm-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-white text-slate-900 rounded-3xl max-w-sm w-full p-6 shadow-2xl relative text-center">
+            <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 font-black text-xl mb-3">⚠️</div>
+            <h3 class="text-lg font-black tracking-tight text-slate-900">Сбросить весь сезон?</h3>
+            <p class="text-xs text-slate-500 mt-1 mb-6">Это действие полностью сотрет все результаты матчей, прогнозы и вернет турнир к начальным настройкам.</p>
+            <div class="flex gap-2">
+                <button onclick="closeResetConfirmModal()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">Отмена</button>
+                <button onclick="executeResetSeason()" class="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs transition shadow-md shadow-rose-600/25">Сбросить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header Navigation (Vibrant Light Football Theme) -->
+    <header class="bg-white sticky top-0 z-40 shadow-sm">
+        <div class="max-w-6xl mx-auto px-3 sm:px-6">
+            <div class="flex items-center justify-between h-14 sm:h-16">
+                <div onclick="switchTab('home')" class="flex items-center gap-2.5 cursor-pointer group">
+                    <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl pitch-gradient flex items-center justify-center text-white shadow-md shadow-emerald-600/25 group-hover:scale-105 transition">
+                        <svg class="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Trophy Handles -->
+                            <path d="M18 16H12C9.8 16 8 17.8 8 20V23C8 27.4 11.6 31 16 31H19" stroke="#FBBF24" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M46 16H52C54.2 16 56 17.8 56 20V23C56 27.4 52.4 31 48 31H45" stroke="#FBBF24" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <!-- Trophy Cup Body -->
+                            <path d="M18 12H46V26C46 33.7 39.7 40 32 40C24.3 40 18 33.7 18 26V12Z" fill="#FBBF24" stroke="white" stroke-width="2.5" stroke-linejoin="round"/>
+                            <!-- Trophy Stem & Base -->
+                            <path d="M32 40V49" stroke="#FBBF24" stroke-width="4" stroke-linecap="round"/>
+                            <path d="M22 54H42" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+                            <rect x="24" y="48" width="16" height="5" rx="2.5" fill="#FBBF24"/>
+                            <!-- Soccer Ball inside Trophy -->
+                            <circle cx="32" cy="24" r="7.5" fill="white"/>
+                            <path d="M32 19.5L35.2 22L34 25.8H30L28.8 22L32 19.5Z" fill="#047857"/>
+                            <path d="M32 17V19.5M35.2 22L38 20.8M34 25.8L36 28.5M30 25.8L28 28.5M28.8 22L26 20.8" stroke="#047857" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <span class="font-black text-sm sm:text-base tracking-tight text-slate-900 block leading-tight">PickArena</span>
+                        <span class="text-[10px] font-extrabold text-emerald-700 uppercase tracking-widest block">Football H2H</span>
+                    </div>
+                </div>
+
+                <!-- Auth Widget -->
+                <div id="header-auth-widget" class="flex items-center gap-2">
+                    <!-- Dynamic auth state -->
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sub-Header Navigation Bar (Colorful Pills) -->
+    <div class="bg-white/95 backdrop-blur-md sticky top-14 sm:top-16 z-30 shadow-sm">
+        <div class="max-w-6xl mx-auto px-2 sm:px-6 py-2">
+            <!-- Desktop Navigation Tabs -->
+            <nav class="hidden md:flex items-center justify-center gap-2" id="desktop-nav-tabs">
+                <!-- Dynamic tabs rendered by JS -->
+            </nav>
+
+            <!-- Mobile Horizontal Scrollable Navigation Bar -->
+            <div class="md:hidden flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 px-1" id="mobile-nav-tabs">
+                <!-- Dynamic mobile tabs -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-5 sm:space-y-6">
+
+        <!-- 1. HOME TAB -->
+        <div id="tab-content-home" class="space-y-5 sm:space-y-6 tab-pane">
+            <!-- Vibrant High-Contrast Welcome Banner -->
+            <div class="bg-white rounded-3xl p-5 sm:p-8 shadow-lg shadow-emerald-900/10 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+                <div class="absolute top-0 left-0 right-0 h-2 pitch-gradient"></div>
+                <div class="space-y-2.5 z-10 pt-1">
+                    <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400 text-slate-950 text-[11px] font-black uppercase tracking-wider shadow-sm">
+                        <span>🏆 Сезон 2026 открыт</span>
+                    </div>
+                    <h1 class="text-xl sm:text-3xl font-black tracking-tight leading-snug text-slate-950">Добро пожаловать в PickArena!</h1>
+                    <p class="text-xs sm:text-sm text-slate-700 font-semibold max-w-2xl leading-relaxed">
+                        Сражайтесь лицом к лицу с соперниками в каждом футбольном туре! Угадывайте исходы главных матчей, поднимайтесь из Лиги Б в элитную Лигу А и завоюйте чемпионский кубок.
+                    </p>
+                </div>
+                <div class="flex flex-wrap sm:flex-nowrap gap-2.5 z-10 w-full md:w-auto shrink-0">
+                    <button onclick="switchTab('predictions')" class="flex-1 sm:flex-none px-5 py-3 pitch-gradient hover:opacity-95 text-white font-black rounded-2xl shadow-lg shadow-emerald-600/25 transition transform active:scale-95 text-xs text-center">⚽ Сделать прогноз</button>
+                    <button onclick="switchTab('standings')" class="flex-1 sm:flex-none px-5 py-3 bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-extrabold rounded-2xl transition text-xs text-center">📊 Таблица</button>
+                </div>
+            </div>
+
+            <!-- News & League Discussions Block -->
+            <div class="bg-white rounded-3xl p-4 sm:p-6 shadow-md shadow-slate-200/60 space-y-4">
+                <div class="flex items-center justify-between gap-2 pb-1">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-10 h-10 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center font-bold text-lg shrink-0">📰</div>
+                        <div>
+                            <h2 class="font-black text-base sm:text-lg text-slate-900 tracking-tight">Новости и темы лиги</h2>
+                            <p class="text-xs text-slate-600 font-medium">Объявления и обсуждения тура</p>
+                        </div>
+                    </div>
+                    <button onclick="switchTab('forum')" class="px-3.5 py-2 rounded-xl bg-sky-100 hover:bg-sky-200 text-xs font-extrabold text-sky-900 transition shrink-0">Все →</button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4" id="home-news-container">
+                    <!-- Rendered by JS: 3 latest topics -->
+                </div>
+            </div>
+
+            <!-- Global Round Selector (Visible on Home & Predictions) -->
+            <div id="global-round-selector-wrapper" class="bg-white rounded-3xl p-4 shadow-md shadow-slate-200/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-base">📅</div>
+                    <div>
+                        <span class="text-[10px] font-extrabold text-indigo-600 uppercase tracking-wider block">Игровой тур</span>
+                        <p class="text-sm font-black text-slate-900" id="current-round-title">Тур 1</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full sm:w-auto pb-0.5" id="round-buttons-container">
+                    <!-- Rendered by JS -->
+                </div>
+            </div>
+
+            <!-- Duel Score Banner & Quick Standings Preview -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
+                <!-- Matchday Duel Card (Vibrant Champions League Indigo/Blue Style - Hidden for Guests) -->
+                <div id="home-duel-score-card" class="lg:col-span-2 duel-gradient rounded-3xl p-5 sm:p-6 shadow-xl shadow-indigo-900/15 text-white flex flex-col justify-between space-y-4">
+                    <div>
+                        <div class="flex items-center justify-between gap-2 mb-3">
+                            <span class="px-3 py-1 rounded-full bg-amber-400 text-slate-950 text-[11px] font-black uppercase tracking-wider">⚔️ Счет дуэли тура</span>
+                            <span class="text-xs text-indigo-100 font-extrabold" id="home-duel-round-label">Тур 1</span>
+                        </div>
+                        <div class="text-center mb-4">
+                            <span class="inline-block px-3.5 py-1 rounded-full bg-white/15 text-xs font-bold text-white" id="home-duel-date-badge">📅 Дата дуэли: 20 ноября 2026</span>
+                        </div>
+                        
+                        <!-- Scoreboard layout adapted for narrow mobile screens -->
+                        <div class="grid grid-cols-11 items-center gap-1.5 sm:gap-3 text-center my-2">
+                            <div class="col-span-4 bg-white/15 backdrop-blur-sm rounded-2xl p-3 sm:p-4">
+                                <span class="text-[10px] text-sky-200 block font-extrabold uppercase mb-1">Хозяин</span>
+                                <span class="font-black text-xs sm:text-base text-white truncate block" id="home-duel-p1-name">Алексей</span>
+                            </div>
+                            <div class="col-span-3 flex flex-col items-center justify-center">
+                                <div class="px-3 py-1.5 rounded-2xl bg-amber-400 text-slate-950 text-lg sm:text-2xl font-black font-mono shadow-md whitespace-nowrap" id="home-duel-score">0 : 0</div>
+                                <span class="text-[10px] text-indigo-100 font-extrabold uppercase tracking-wider block mt-1.5">Счет</span>
+                            </div>
+                            <div class="col-span-4 bg-white/15 backdrop-blur-sm rounded-2xl p-3 sm:p-4">
+                                <span class="text-[10px] text-sky-200 block font-extrabold uppercase mb-1">Гость</span>
+                                <span class="font-black text-xs sm:text-base text-white truncate block" id="home-duel-p2-name">Дмитрий</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-3 border-t border-white/15 flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <span class="text-xs text-indigo-100 font-medium text-center sm:text-left">Успейте поставить исходы до стартового свистка</span>
+                        <button onclick="switchTab('predictions')" class="w-full sm:w-auto px-5 py-2.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black rounded-xl shadow-md transition transform active:scale-95 text-xs">Сделать прогноз</button>
+                    </div>
+                </div>
+
+                <!-- Quick Standings Preview -->
+                <div id="home-standings-preview-card" class="bg-white rounded-3xl p-5 sm:p-6 shadow-md shadow-slate-200/60 flex flex-col justify-between space-y-4">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-black text-sm text-slate-900 uppercase tracking-wider flex items-center gap-1.5"><span>🏆</span><span>Лига А (Топ)</span></h3>
+                            <button onclick="switchTab('standings')" class="text-xs text-emerald-700 hover:text-emerald-800 font-extrabold bg-emerald-100 px-2.5 py-1 rounded-lg">Таблица →</button>
+                        </div>
+                        <div class="space-y-2" id="home-standings-preview">
+                            <!-- Rendered by JS -->
+                        </div>
+                    </div>
+                    <div class="pt-3 border-t border-slate-100 text-center">
+                        <span class="text-xs text-slate-600 font-semibold">Победа = 3 очка • Ничья = 1 очко</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. PREDICTIONS TAB -->
+        <div id="tab-content-predictions" class="space-y-5 sm:space-y-6 tab-pane hidden">
+            <!-- Duel Score Banner on Predictions (Vibrant Indigo/Blue - Hidden for Guests) -->
+            <div id="pred-duel-score-card" class="duel-gradient rounded-3xl p-5 sm:p-6 shadow-xl shadow-indigo-900/15 text-white space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="px-3 py-1 rounded-full bg-amber-400 text-slate-950 text-[11px] font-black uppercase tracking-wider">⚔️ Ваша дуэль в туре</span>
+                    <span class="text-xs text-indigo-100 font-extrabold" id="pred-duel-round-label">Тур 1</span>
+                </div>
+                <div class="text-center">
+                    <span class="inline-block px-3.5 py-1 rounded-full bg-white/15 text-xs font-bold text-white" id="pred-duel-date-badge">📅 Дата дуэли: 20 ноября 2026</span>
+                </div>
+                <div class="grid grid-cols-11 items-center gap-2 bg-white/15 backdrop-blur-sm p-3.5 sm:p-4 rounded-2xl">
+                    <div class="col-span-4 text-left">
+                        <span class="text-[10px] text-sky-200 block font-extrabold uppercase">Вы</span>
+                        <span class="font-black text-xs sm:text-sm text-white truncate block" id="pred-my-name">—</span>
+                    </div>
+                    <div class="col-span-3 text-center">
+                        <span class="inline-block px-3 py-1 rounded-xl bg-amber-400 text-slate-950 font-mono font-black text-base sm:text-xl whitespace-nowrap shadow-sm" id="pred-duel-score-val">0 : 0</span>
+                    </div>
+                    <div class="col-span-4 text-right">
+                        <span class="text-[10px] text-sky-200 block font-extrabold uppercase">Соперник</span>
+                        <span class="font-black text-xs sm:text-sm text-white truncate block" id="pred-rival-name">—</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Matches List for Predictions -->
+            <div class="bg-white rounded-3xl p-4 sm:p-6 shadow-md shadow-slate-200/60 space-y-5">
+                <div id="predictions-matches-header" class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                    <div>
+                        <h2 class="font-black text-base sm:text-lg text-slate-900 tracking-tight">Матчи для прогнозирования</h2>
+                        <p class="text-xs text-slate-600 font-medium">Выберите исход: П1 (хозяева), Х (ничья) или П2 (гости)</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                        <div id="deadline-warning-badge" class="px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-900 text-xs font-extrabold">⏳ Прием открыт</div>
+                        <button onclick="saveUserPredictions()" class="px-5 py-2.5 pitch-gradient hover:opacity-95 text-white font-extrabold rounded-xl shadow-md shadow-emerald-600/20 transition transform active:scale-95 text-xs">Сохранить</button>
+                    </div>
+                </div>
+
+                <div class="space-y-3" id="predictions-matches-container">
+                    <!-- Rendered by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. DUELS SCHEDULE TAB -->
+        <div id="tab-content-duels" class="space-y-5 sm:space-y-6 tab-pane hidden">
+            <div class="bg-white rounded-3xl p-4 sm:p-6 shadow-md shadow-slate-200/60 space-y-5">
+                <div class="flex items-center gap-3 pb-1">
+                    <div class="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-lg shrink-0">⚔️</div>
+                    <div>
+                        <h2 class="font-black text-base sm:text-lg text-slate-900 tracking-tight">Дуэли и итоги туров H2H</h2>
+                        <p class="text-xs text-slate-600 font-medium">Очные противостояния участников и результаты прошедших туров</p>
+                    </div>
+                </div>
+
+                <div class="space-y-5" id="duels-schedule-container">
+                    <!-- Rendered by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. STANDINGS TAB -->
+        <div id="tab-content-standings" class="space-y-5 sm:space-y-6 tab-pane hidden">
+            <div class="bg-white rounded-3xl p-4 sm:p-6 shadow-md shadow-slate-200/60 space-y-5">
+                <div class="flex items-center gap-3 pb-1">
+                    <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-lg shrink-0">🏆</div>
+                    <div>
+                        <h2 class="font-black text-base sm:text-lg text-slate-900 tracking-tight">Турнирная таблица</h2>
+                        <p class="text-xs text-slate-600 font-medium">Положение команд в дивизионах</p>
+                    </div>
+                </div>
+
+                <div class="space-y-6" id="standings-tables-container">
+                    <!-- Rendered by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. FORUM TAB -->
+        <div id="tab-content-forum" class="space-y-5 sm:space-y-6 tab-pane hidden">
+            <div class="bg-white rounded-3xl p-4 sm:p-6 shadow-md shadow-slate-200/60 space-y-5">
+                <div class="flex items-center gap-3 pb-1">
+                    <div class="w-10 h-10 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center font-bold text-lg shrink-0">💬</div>
+                    <div>
+                        <h2 class="font-black text-base sm:text-lg text-slate-900 tracking-tight">Новости и темы лиги</h2>
+                        <p class="text-xs text-slate-600 font-medium">Обсуждение матчей, прогнозов и турнирных баталий</p>
+                    </div>
+                </div>
+
+                <!-- Create Topic Box (Restricted strictly to Admin) -->
+                <div id="forum-create-topic-wrapper">
+                    <!-- Rendered dynamically by JS based on admin role -->
+                </div>
+
+                <div class="space-y-4" id="forum-topics-container">
+                    <!-- Rendered by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. PROFILE TAB -->
+        <div id="tab-content-profile" class="space-y-5 sm:space-y-6 tab-pane hidden">
+            <div class="bg-white rounded-3xl p-4 sm:p-6 shadow-md shadow-slate-200/60 space-y-6" id="profile-container">
+                <!-- Rendered by JS -->
+            </div>
+        </div>
+
+        <!-- 7. ADMIN TAB (Restricted strictly to Admin) -->
+        <div id="tab-content-admin" class="space-y-5 sm:space-y-6 tab-pane hidden">
+            <div class="bg-white rounded-3xl p-4 sm:p-6 shadow-md shadow-slate-200/60 space-y-6">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-lg shrink-0">👑</div>
+                        <div>
+                            <h2 class="font-black text-base sm:text-lg text-slate-900 tracking-tight">Панель администратора</h2>
+                            <p class="text-xs text-slate-600 font-medium">Управление турниром, матчами, лигами и участниками</p>
+                        </div>
+                    </div>
+                    <button onclick="confirmResetCloudData()" class="px-4 py-2 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-800 text-xs font-extrabold transition">Сбросить сезон</button>
+                </div>
+
+                <!-- Admin Sub-sections -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    
+                    <!-- 1. Match Management & Simulate & Round Select & Start Time -->
+                    <div class="bg-emerald-50/70 rounded-2xl p-4 sm:p-5 space-y-4">
+                        <div class="flex items-center justify-between gap-2">
+                            <h3 class="text-xs font-extrabold text-emerald-900 uppercase tracking-wider">Управление матчами</h3>
+                            <div class="flex items-center gap-1.5">
+                                <label class="text-xs text-slate-700 font-bold">Тур:</label>
+                                <select id="admin-round-select" onchange="selectAdminRound(this.value)" class="bg-white text-slate-900 text-xs font-extrabold px-2.5 py-1.5 rounded-xl shadow-sm focus:outline-none">
+                                    <!-- Options filled by JS -->
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Round Date & Start Time Settings -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white p-3.5 rounded-2xl shadow-sm">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Дата дуэли тура</label>
+                                <input type="text" id="admin-round-duel-date-input" onchange="updateRoundDuelDate(state.selectedRound, this.value)" placeholder="20 ноября 2026" class="w-full px-3 py-2 rounded-xl bg-slate-100 text-slate-900 text-xs font-semibold focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Старт 1-го матча (дедлайн)</label>
+                                <input type="datetime-local" id="admin-round-start-time-input" onchange="updateRoundStartTime(state.selectedRound, this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-100 text-slate-900 text-xs font-semibold focus:outline-none">
+                            </div>
+                        </div>
+
+                        <div class="space-y-2.5 max-h-72 overflow-y-auto custom-scrollbar pr-1" id="admin-matches-list">
+                            <!-- Rendered by JS -->
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                            <button onclick="publishRoundMatchesToPlayers()" class="w-full py-3 pitch-gradient hover:opacity-95 text-white font-extrabold rounded-xl text-xs transition shadow-sm">📨 Отправить матчи тура участникам</button>
+                            <button onclick="simulateRoundResults()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl text-xs transition shadow-sm">⚡ Симулировать итоги</button>
+                        </div>
+                    </div>
+
+                    <!-- 2. Users & Registration Approval & Pagination -->
+                    <div class="bg-sky-50/70 rounded-2xl p-4 sm:p-5 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xs font-extrabold text-sky-900 uppercase tracking-wider">Пользователи и модерация</h3>
+                            <span class="text-xs text-sky-800 font-extrabold" id="admin-users-counter">Всего: 0</span>
+                        </div>
+
+                        <div class="space-y-2.5 max-h-72 overflow-y-auto custom-scrollbar pr-1" id="admin-users-list">
+                            <!-- Rendered by JS (paginated 5 per page) -->
+                        </div>
+
+                        <!-- Pagination for users -->
+                        <div class="flex items-center justify-between pt-2 text-xs">
+                            <button onclick="changeAdminUsersPage(state.adminUsersPage - 1)" class="px-3 py-1.5 bg-white hover:bg-sky-100 text-slate-800 rounded-xl font-bold shadow-sm">← Назад</button>
+                            <span class="font-bold text-slate-700" id="admin-users-page-indicator">Страница 1 из 1</span>
+                            <button onclick="changeAdminUsersPage(state.adminUsersPage + 1)" class="px-3 py-1.5 bg-white hover:bg-sky-100 text-slate-800 rounded-xl font-bold shadow-sm">Вперед →</button>
+                        </div>
+                    </div>
+
+                    <!-- 3. League & Participants Management -->
+                    <div class="bg-indigo-50/70 rounded-2xl p-4 sm:p-5 space-y-4">
+                        <h3 class="text-xs font-extrabold text-indigo-900 uppercase tracking-wider">Управление участниками и лигами</h3>
+                        
+                        <div class="space-y-3">
+                            <div class="bg-white p-4 rounded-2xl shadow-sm space-y-2.5">
+                                <span class="text-xs font-extrabold text-slate-800 block">Добавить участника вручную</span>
+                                <input type="text" id="admin-new-player-name" placeholder="Имя участника" class="w-full px-3 py-2 rounded-xl bg-slate-100 text-slate-900 placeholder-slate-400 text-xs font-semibold focus:outline-none">
+                                <input type="text" id="admin-new-player-login" placeholder="Логин (например, petrov)" class="w-full px-3 py-2 rounded-xl bg-slate-100 text-slate-900 placeholder-slate-400 text-xs font-semibold focus:outline-none">
+                                <input type="password" id="admin-new-player-pass" placeholder="Пароль" class="w-full px-3 py-2 rounded-xl bg-slate-100 text-slate-900 placeholder-slate-400 text-xs font-semibold focus:outline-none">
+                                <select id="admin-new-player-league" class="w-full px-3 py-2 rounded-xl bg-slate-100 text-slate-900 text-xs font-semibold focus:outline-none">
+                                    <option value="A">Лига А</option>
+                                    <option value="B" selected>Лига Б</option>
+                                </select>
+                                <button onclick="addPlayerAdmin()" class="w-full py-2.5 pitch-gradient hover:opacity-95 text-white font-extrabold rounded-xl text-xs transition">Добавить участника</button>
+                            </div>
+
+                            <!-- Assign registered user to league -->
+                            <div class="bg-white p-4 rounded-2xl shadow-sm space-y-2.5">
+                                <span class="text-xs font-extrabold text-slate-800 block">Закрепить пользователя за лигой</span>
+                                <select id="admin-assign-user-id" class="w-full px-3 py-2 rounded-xl bg-slate-100 text-slate-900 text-xs font-semibold focus:outline-none">
+                                    <!-- Filled by JS -->
+                                </select>
+                                <select id="admin-assign-user-league" class="w-full px-3 py-2 rounded-xl bg-slate-100 text-slate-900 text-xs font-semibold focus:outline-none">
+                                    <option value="A">Лига А</option>
+                                    <option value="B">Лига Б</option>
+                                </select>
+                                <button onclick="assignRegisteredUserToLeague()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl text-xs transition">Закрепить и подтвердить</button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3" id="admin-leagues-players-container">
+                            <!-- Rendered by JS -->
+                        </div>
+                    </div>
+
+                    <!-- 3.5 Duel Draw Block for Admin -->
+                    <div class="bg-violet-50/70 rounded-2xl p-4 sm:p-5 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xs font-extrabold text-violet-900 uppercase tracking-wider">🎲 Жеребьевка дуэлей (Каждый с каждым)</h3>
+                            <span class="text-xs text-violet-800 font-extrabold" id="admin-draw-round-label">Тур 1</span>
+                        </div>
+                        <p class="text-xs text-slate-600 font-medium">Автоматически составить круговой календарь (каждый с каждым) для всех лиг на все туры турнира.</p>
+                        <button onclick="performFullRoundRobinDraw()" class="w-full py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-extrabold rounded-xl text-xs transition shadow-sm">🎲 Провести жеребьевку на все туры</button>
+                        <div class="space-y-3 bg-white p-4 rounded-2xl shadow-sm" id="admin-draw-preview-container">
+                            <!-- Rendered by JS -->
+                        </div>
+                    </div>
+
+                    <!-- 4. Leagues & Awards Management -->
+                    <div class="bg-amber-50/70 rounded-2xl p-4 sm:p-5 space-y-4">
+                        <h3 class="text-xs font-extrabold text-amber-900 uppercase tracking-wider">Управление дивизионами</h3>
+                        
+                        <div class="space-y-3">
+                            <div class="bg-white p-4 rounded-2xl shadow-sm space-y-2.5">
+                                <span class="text-xs font-extrabold text-slate-800 block">Создать новую лигу</span>
+                                <input type="text" id="admin-new-league-code" placeholder="Код (например, C)" class="w-full px-3 py-2 rounded-xl bg-slate-100 text-slate-900 placeholder-slate-400 text-xs font-semibold focus:outline-none">
+                                <input type="text" id="admin-new-league-name" placeholder="Название (например, Лига С)" class="w-full px-3 py-2 rounded-xl bg-slate-100 text-slate-900 placeholder-slate-400 text-xs font-semibold focus:outline-none">
+                                <button onclick="addLeagueAdmin()" class="w-full py-2.5 pitch-gradient hover:opacity-95 text-white font-extrabold rounded-xl text-xs transition">Создать лигу</button>
+                            </div>
+
+                            <!-- Delete League Section -->
+                            <div class="bg-white p-4 rounded-2xl shadow-sm space-y-2.5">
+                                <span class="text-xs font-extrabold text-slate-800 block">Удалить лигу</span>
+                                <select id="admin-delete-league-code" class="w-full px-3 py-2 rounded-xl bg-slate-100 text-slate-900 text-xs font-semibold focus:outline-none">
+                                    <!-- Filled by JS -->
+                                </select>
+                                <button onclick="deleteLeagueAdmin()" class="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl text-xs transition shadow-sm">Удалить лигу</button>
+                            </div>
+
+                            <!-- Awards & Medals Block (Moved after Delete League) -->
+                            <div class="pt-2 border-t border-amber-200/70 space-y-3">
+                                <h3 class="text-xs font-extrabold text-amber-900 uppercase tracking-wider">Награды и дивизионы</h3>
+                                <div class="bg-white p-4 rounded-2xl shadow-sm space-y-2.5">
+                                    <span class="text-xs font-extrabold text-slate-800 block">Выдать медаль/награду</span>
+                                    <select id="admin-award-player" class="w-full px-3 py-2 rounded-xl bg-slate-100 text-slate-900 text-xs font-semibold focus:outline-none"></select>
+                                    <select id="admin-award-type" class="w-full px-3 py-2 rounded-xl bg-slate-100 text-slate-900 text-xs font-semibold focus:outline-none">
+                                        <option value="gold">🥇 Золотая медаль</option>
+                                        <option value="silver">🥈 Серебряная медаль</option>
+                                        <option value="bronze">🥉 Бронзовая медаль</option>
+                                        <option value="sniper">🎯 Лучший снайпер прогнозов</option>
+                                        <option value="tactician">🧠 Тактик года</option>
+                                    </select>
+                                    <button onclick="grantAwardAdmin()" class="w-full py-2.5 gold-gradient hover:opacity-95 text-white font-extrabold rounded-xl text-xs transition">Вручить награду</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2" id="admin-awarded-list">
+                            <!-- Rendered by JS -->
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white mt-10 py-6 text-center text-xs text-slate-600 shadow-inner">
+        <div class="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p class="font-semibold">© 2026 PickArena — Футбольные дуэли прогнозистов</p>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 text-emerald-700 font-extrabold"><span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>Онлайн</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Application Script -->
+    <script>
+        // Data and Initial State
+        const AVAILABLE_AWARDS = {
+            gold: { name: 'Золотая медаль', icon: '🥇' },
+            silver: { name: 'Серебряная медаль', icon: '🥈' },
+            bronze: { name: 'Бронзовая медаль', icon: '🥉' },
+            sniper: { name: 'Лучший снайпер', icon: '🎯' },
+            tactician: { name: 'Тактик года', icon: '🧠' }
+        };
+
+        function createInitialTournamentData() {
+            return {
+                leagues: [
+                    { code: 'A', name: 'Лига А (Высший дивизион)' },
+                    { code: 'B', name: 'Лига Б (Первый дивизион)' }
+                ],
+                players: [
+                    { id: 'P1', name: 'Алексей Смирнов', league: 'A', login: 'ivan', favoriteClub: 'Спартак', bio: 'Люблю футбол и тактические прогнозы.', avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150', awards: ['gold'], isConfirmed: true },
+                    { id: 'P2', name: 'Дмитрий Васильев', league: 'A', login: 'dmitry', favoriteClub: 'Зенит', bio: 'Играю на победу в каждом туре.', avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150', awards: ['sniper'], isConfirmed: true },
+                    { id: 'P3', name: 'Михаил Петров', league: 'A', login: 'mikhail', favoriteClub: 'ЦСКА', bio: 'Прогнозист со стажем.', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', awards: [], isConfirmed: true },
+                    { id: 'P4', name: 'Евгений Орлов', league: 'A', login: 'evgeny', favoriteClub: 'Динамо', bio: 'Только вперед!', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150', awards: ['bronze'], isConfirmed: true },
+                    { id: 'P5', name: 'Сергей Иванов', league: 'B', login: 'sergey', favoriteClub: 'Локомотив', bio: 'Начинающий участник Лиги Б.', avatar: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=150', awards: [], isConfirmed: true },
+                    { id: 'P6', name: 'Артем Ковалев', league: 'B', login: 'artem', favoriteClub: 'Краснодар', bio: 'Цель - выйти в Лигу А.', avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=150', awards: [], isConfirmed: true },
+                    { id: 'P7', name: 'Павел Морозов', league: 'B', login: 'pavel', favoriteClub: 'Ростов', bio: 'Люблю анализировать матчи.', avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150', awards: [], isConfirmed: true },
+                    { id: 'P8', name: 'Николай Новиков', league: 'B', login: 'nikolay', favoriteClub: 'Рубин', bio: 'Всем удачи в прогнозах!', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', awards: [], isConfirmed: true }
+                ],
+                rounds: [
+                    {
+                        number: 1,
+                        isPublished: true,
+                        duelDate: '20 ноября 2026',
+                        startTime: '2026-11-20T18:00',
+                        matches: [
+                            { id: 'm1', home: 'Арсенал', away: 'Челси', result: '1' },
+                            { id: 'm2', home: 'Реал Мадрид', away: 'Барселона', result: 'X' },
+                            { id: 'm3', home: 'Бавария', away: 'Боруссия Д', result: '2' },
+                            { id: 'm4', home: 'Интер', away: 'Милан', result: '1' },
+                            { id: 'm5', home: 'ПСЖ', away: 'Марсель', result: '1' }
+                        ],
+                        duels: {
+                            A: [ { p1: 'P1', p2: 'P2' }, { p1: 'P3', p2: 'P4' } ],
+                            B: [ { p1: 'P5', p2: 'P6' }, { p1: 'P7', p2: 'P8' } ]
+                        },
+                        predictions: {
+                            P1: { m1: '1', m2: 'X', m3: '2', m4: '1', m5: '1' },
+                            P2: { m1: '1', m2: '1', m3: '2', m4: 'X', m5: '2' }
+                        }
+                    },
+                    {
+                        number: 2,
+                        isPublished: false,
+                        duelDate: '27 ноября 2026',
+                        startTime: '2026-11-27T18:00',
+                        matches: [
+                            { id: 'm6', home: 'Ливерпуль', away: 'Ман Сити', result: '' },
+                            { id: 'm7', home: 'Атлетико', away: 'Севилья', result: '' },
+                            { id: 'm8', home: 'Ювентус', away: 'Наполи', result: '' },
+                            { id: 'm9', home: 'Бенфика', away: 'Порту', result: '' },
+                            { id: 'm10', home: 'Аякс', away: 'ПСВ', result: '' }
+                        ],
+                        duels: {
+                            A: [ { p1: 'P1', p2: 'P3' }, { p1: 'P2', p2: 'P4' } ],
+                            B: [ { p1: 'P5', p2: 'P7' }, { p1: 'P6', p2: 'P8' } ]
+                        },
+                        predictions: {}
+                    },
+                    {
+                        number: 3,
+                        isPublished: false,
+                        duelDate: '4 декабря 2026',
+                        startTime: '2026-12-04T18:00',
+                        matches: [
+                            { id: 'm11', home: 'Тоттенхэм', away: 'Ман Юнайтед', result: '' },
+                            { id: 'm12', home: 'Вильярреал', away: 'Валенсия', result: '' },
+                            { id: 'm13', home: 'Рома', away: 'Лацио', result: '' },
+                            { id: 'm14', home: 'Спортинг', away: 'Брага', result: '' },
+                            { id: 'm15', home: 'Фейеноорд', away: 'АЗ Алкмар', result: '' }
+                        ],
+                        duels: {
+                            A: [ { p1: 'P1', p2: 'P4' }, { p1: 'P2', p2: 'P3' } ],
+                            B: [ { p1: 'P5', p2: 'P8' }, { p1: 'P6', p2: 'P7' } ]
+                        },
+                        predictions: {}
+                    }
+                ],
+                forumTopics: [
+                    { id: 'f1', author: 'Алексей Смирнов', title: 'Старт нового сезона прогнозов H2H!', text: 'Всем привет! Рады приветствовать участников в нашем новом сезоне. Желаем честной борьбы и точных прогнозов!', date: '18 ноя 2026', comments: [ { author: 'Дмитрий Васильев', text: 'Спасибо! Настроен только на победу в Лиге А.' } ] },
+                    { id: 'f2', author: 'Дмитрий Васильев', title: 'Обсуждение центрального матча 1-го тура', text: 'Как думаете, кто победит в противостоянии Реал - Барселона?', date: '19 ноя 2026', comments: [] },
+                    { id: 'f3', author: 'Администратор', title: 'Правила начисления очков и дедлайн', text: 'Напоминаем, что прогнозы закрываются ровно за 5 минут до начала матчей первого тура.', date: '19 ноя 2026', comments: [] }
+                ]
+            };
+        }
+
+        let state = {
+            currentTab: 'home',
+            selectedRound: 1,
+            adminUsersPage: 1,
+            currentAccount: null,
+            viewedProfileId: null,
+            hasUnsavedPredictions: false,
+            data: createInitialTournamentData()
+        };
+
+        // Supabase cloud persistence. Configure URL and anon key in supabase-config.js.
+        let supabaseClient = null;
+        let cloudReady = false;
+        function initCloud() {
+            const cfg = window.PICKARENA_CONFIG || {};
+            if (!window.supabase || !cfg.url || !cfg.anonKey || cfg.url.includes('YOUR_')) return false;
+            supabaseClient = window.supabase.createClient(cfg.url, cfg.anonKey);
+            cloudReady = true;
+            return true;
+        }
+        function saveSessionLocal() {
+            // Keep only a non-sensitive UI cache. Passwords and auth tokens are never stored here.
+            localStorage.setItem('pickarena_ui_cache', JSON.stringify({ currentTab: state.currentTab }));
+        }
+        async function loadSessionLocal() {
+            if (!initCloud()) {
+                showToast('Сначала настройте Supabase в файле supabase-config.js', 'error');
+                return;
+            }
+            const { data: authData } = await supabaseClient.auth.getSession();
+            if (authData.session) {
+                const { data: profile } = await supabaseClient.from('pickarena_profiles').select('id, username, display_name, role, league').eq('id', authData.session.user.id).single();
+                if (profile) state.currentAccount = { role: profile.role, id: profile.id, name: profile.display_name, login: profile.username };
+            }
+            const { data: cloudState, error } = await supabaseClient.from('pickarena_state').select('data').eq('id', 1).maybeSingle();
+            if (!error && cloudState && cloudState.data) state.data = cloudState.data;
+            else if (state.currentAccount && state.currentAccount.role === 'admin') { await supabaseClient.from('pickarena_state').upsert({ id: 1, data: state.data }); }
+            if (state.currentAccount && state.currentAccount.role === 'player') {
+                const { data: rows } = await supabaseClient.from('pickarena_predictions').select('round_number, predictions').eq('player_id', state.currentAccount.id);
+                (rows || []).forEach(row => {
+                    const round = state.data.rounds.find(r => r.number === row.round_number);
+                    if (round) { if (!round.predictions) round.predictions = {}; round.predictions[state.currentAccount.id] = row.predictions || {}; }
+                });
+                const { data: me } = await supabaseClient.from('pickarena_profiles').select('id, username, display_name, role, league').eq('id', state.currentAccount.id).single();
+                if (me && !state.data.players.some(p => p.id === me.id)) state.data.players.push({ id: me.id, name: me.display_name, login: me.username, league: me.league || '', favoriteClub: 'Не указан', bio: '', avatar: '', awards: [], isConfirmed: false });
+            }
+        }
+        async function saveState(toastMsg = 'Изменения сохранены!') {
+            if (!cloudReady || !supabaseClient) { showToast('Облачное подключение не настроено', 'error'); return; }
+            if (!state.currentAccount) { showToast('Войдите в аккаунт', 'error'); return; }
+            let error = null;
+            if (state.currentAccount.role === 'admin') {
+                const result = await supabaseClient.from('pickarena_state').upsert({ id: 1, data: state.data, updated_at: new Date().toISOString() });
+                error = result.error;
+            } else {
+                const round = state.data.rounds.find(r => r.number === state.selectedRound);
+                const predictions = round?.predictions?.[state.currentAccount.id] || {};
+                const result = await supabaseClient.rpc('pickarena_save_predictions', { p_round_number: state.selectedRound, p_predictions: predictions });
+                error = result.error;
+            }
+            if (error) { showToast('Не удалось сохранить в облако: ' + error.message, 'error'); return; }
+            saveSessionLocal(); renderAll(); showToast(toastMsg);
+        }
+
+        // Toast notification system
+        window.showToast = function(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            const bgClass = type === 'error' ? 'bg-rose-600' : 'bg-slate-900';
+            toast.className = `${bgClass} text-white px-4 py-3 rounded-2xl shadow-xl text-xs font-bold flex items-center gap-2.5 animate-in fade-in slide-in-from-top-3 duration-200 pointer-events-auto`;
+            toast.innerHTML = `<span>${type === 'error' ? '⚠️' : '⚽'}</span><span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'transition', 'duration-300');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        };
+
+        // Helpers
+        function isAdminLoggedIn() {
+            return state.currentAccount && state.currentAccount.role === 'admin';
+        }
+
+        function getPlayerById(id) {
+            return (state.data.players || []).find(p => p.id === id);
+        }
+
+        function formatPlayersCount(count) {
+            if (count === 1) return '1 участник';
+            if (count > 1 && count < 5) return `${count} участника`;
+            return `${count} участников`;
+        }
+
+        function isRoundLockedByTime(round) {
+            if (!round.startTime) return false;
+            const startTimeMs = new Date(round.startTime).getTime();
+            const nowMs = Date.now();
+            const diffMinutes = (startTimeMs - nowMs) / (1000 * 60);
+            return diffMinutes < 5;
+        }
+
+        // Navigation Switching
+        window.switchTab = function(tabName) {
+            state.currentTab = tabName;
+            
+            const globalSelector = document.getElementById('global-round-selector-wrapper');
+            if (globalSelector) {
+                if (state.currentAccount && (tabName === 'home' || tabName === 'predictions')) {
+                    globalSelector.classList.remove('hidden');
+                } else {
+                    globalSelector.classList.add('hidden');
+                }
+            }
+
+            document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
+            const target = document.getElementById(`tab-content-${tabName}`);
+            if (target) target.classList.remove('hidden');
+
+            renderAll();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        // Render Authentication & Headers
+        function renderAuthHeader() {
+            const navTabsDesktop = document.getElementById('desktop-nav-tabs');
+            const navTabsMobile = document.getElementById('mobile-nav-tabs');
+            const authWidget = document.getElementById('header-auth-widget');
+            if (!navTabsDesktop || !navTabsMobile || !authWidget) return;
+
+            const isAdmin = isAdminLoggedIn();
+
+            let tabs = [
+                { id: 'home', name: 'Главная', icon: '🏟️', activeBg: 'bg-emerald-600', pillBg: 'bg-emerald-50 text-emerald-900' },
+                { id: 'predictions', name: 'Прогнозы', icon: '⚽', activeBg: 'bg-sky-600', pillBg: 'bg-sky-50 text-sky-900' },
+                { id: 'duels', name: 'Дуэли', icon: '⚔️', activeBg: 'bg-indigo-600', pillBg: 'bg-indigo-50 text-indigo-900' },
+                { id: 'standings', name: 'Таблица', icon: '🏆', activeBg: 'bg-amber-500', pillBg: 'bg-amber-50 text-amber-900' },
+                { id: 'forum', name: 'Новости', icon: '💬', activeBg: 'bg-teal-600', pillBg: 'bg-teal-50 text-teal-900' },
+                { id: 'profile', name: 'Профиль', icon: '👤', activeBg: 'bg-violet-600', pillBg: 'bg-violet-50 text-violet-900' }
+            ];
+
+            if (isAdmin) {
+                tabs.push({ id: 'admin', name: 'Админка', icon: '👑', activeBg: 'bg-rose-600', pillBg: 'bg-rose-50 text-rose-900' });
+            }
+
+            navTabsDesktop.innerHTML = tabs.map(t => `
+                <button onclick="switchTab('${t.id}')" class="px-4 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 ${state.currentTab === t.id ? `${t.activeBg} text-white shadow-md` : `${t.pillBg} hover:opacity-80`}">
+                    <span>${t.icon}</span>
+                    <span>${t.name}</span>
+                </button>
+            `).join('');
+
+            navTabsMobile.innerHTML = tabs.map(t => `
+                <button onclick="switchTab('${t.id}')" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-extrabold whitespace-nowrap shrink-0 transition ${state.currentTab === t.id ? `${t.activeBg} text-white shadow-md` : `${t.pillBg}`}">
+                    <span>${t.icon}</span>
+                    <span>${t.name}</span>
+                </button>
+            `).join('');
+
+            if (state.currentAccount) {
+                const accName = state.currentAccount.role === 'admin' ? 'Админ' : (getPlayerById(state.currentAccount.id)?.name || state.currentAccount.name);
+                authWidget.innerHTML = `
+                    <div class="flex items-center gap-2 bg-emerald-50 px-2.5 sm:px-3 py-1.5 rounded-2xl">
+                        <div class="w-6 h-6 sm:w-7 sm:h-7 rounded-full pitch-gradient text-white flex items-center justify-center font-black text-xs shrink-0">⚽</div>
+                        <span class="text-xs font-extrabold text-slate-900 max-w-[85px] sm:max-w-[120px] truncate">${accName}</span>
+                        <button onclick="logoutAccount()" class="text-rose-600 hover:text-rose-800 font-extrabold ml-1 text-[11px] sm:text-xs">Выйти</button>
+                    </div>
+                `;
+            } else {
+                authWidget.innerHTML = `
+                    <button onclick="openAuthModal()" class="px-4 py-2 pitch-gradient hover:opacity-95 text-white text-xs font-extrabold rounded-xl shadow-sm transition">Войти</button>
+                `;
+            }
+        }
+
+        window.openAuthModal = function() {
+            const modal = document.getElementById('auth-modal');
+            if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+        };
+
+        window.closeAuthModal = function() {
+            const modal = document.getElementById('auth-modal');
+            if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+        };
+
+        // Render Round Selector
+        function renderRoundSelector() {
+            const wrapper = document.getElementById('global-round-selector-wrapper');
+            if (wrapper) {
+                if (!state.currentAccount || (state.currentTab !== 'home' && state.currentTab !== 'predictions')) {
+                    wrapper.classList.add('hidden');
+                } else {
+                    wrapper.classList.remove('hidden');
+                }
+            }
+
+            const titleEl = document.getElementById('current-round-title');
+            const container = document.getElementById('round-buttons-container');
+            if (!titleEl || !container) return;
+
+            titleEl.textContent = `Тур ${state.selectedRound} из ${state.data.rounds.length}`;
+            container.innerHTML = state.data.rounds.map(r => `
+                <button onclick="selectRound(${r.number})" class="px-3.5 py-2 rounded-xl text-xs font-black whitespace-nowrap shrink-0 transition ${state.selectedRound === r.number ? 'bg-indigo-600 text-white shadow-sm' : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-900'}">
+                    Тур ${r.number}
+                </button>
+            `).join('');
+        }
+
+        // Render Home View
+        function renderHomeForumNews() {
+            const newsContainer = document.getElementById('home-news-container');
+            if (newsContainer) {
+                const topics = (state.data.forumTopics || []).slice(0, 3);
+                const cardAccents = ['bg-sky-50/90 hover:bg-sky-100/80', 'bg-emerald-50/90 hover:bg-emerald-100/80', 'bg-amber-50/90 hover:bg-amber-100/80'];
+                newsContainer.innerHTML = topics.length === 0 ? '<div class="text-xs text-slate-500 italic">Пока нет новостей</div>' : topics.map((t, idx) => `
+                    <div onclick="switchTab('forum')" class="${cardAccents[idx % cardAccents.length]} rounded-2xl p-4 transition cursor-pointer flex flex-col justify-between space-y-2.5">
+                        <div>
+                            <span class="text-[11px] font-extrabold text-indigo-700 mb-1 block">${t.date} • ${t.author}</span>
+                            <h4 class="font-black text-sm text-slate-900 line-clamp-1">${t.title}</h4>
+                            <p class="text-xs text-slate-700 font-medium line-clamp-2 mt-1">${t.text}</p>
+                        </div>
+                        <div class="flex items-center justify-between pt-2 border-t border-slate-200/70 text-xs text-emerald-800 font-extrabold">
+                            <span>Читать →</span>
+                            <span>💬 ${t.comments.length}</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Duel Banner & Standings Preview on Home
+            const homeDuelCard = document.getElementById('home-duel-score-card');
+            const homeStandingsCard = document.getElementById('home-standings-preview-card');
+            if (homeDuelCard && homeStandingsCard) {
+                if (!state.currentAccount) {
+                    homeDuelCard.classList.add('hidden');
+                    homeStandingsCard.classList.add('lg:col-span-3');
+                } else {
+                    homeDuelCard.classList.remove('hidden');
+                    homeStandingsCard.classList.remove('lg:col-span-3');
+                }
+            }
+
+            const round = state.data.rounds.find(r => r.number === state.selectedRound);
+            if (round && state.currentAccount) {
+                const roundLabel = document.getElementById('home-duel-round-label');
+                const dateBadge = document.getElementById('home-duel-date-badge');
+                if (roundLabel) roundLabel.textContent = `Тур ${round.number}`;
+                if (dateBadge) dateBadge.textContent = `📅 Дата дуэли: ${round.duelDate || 'Не назначена'}`;
+
+                const isAdmin = isAdminLoggedIn();
+                const isPlayer = state.currentAccount && state.currentAccount.role === 'player';
+                const p1NameEl = document.getElementById('home-duel-p1-name');
+                const p2NameEl = document.getElementById('home-duel-p2-name');
+                const scoreEl = document.getElementById('home-duel-score');
+
+                if (isAdmin) {
+                    if (p1NameEl) p1NameEl.textContent = '👑 Админ';
+                    if (p2NameEl) p2NameEl.textContent = 'Обзор турнира';
+                    if (scoreEl) scoreEl.textContent = '— : —';
+                } else if (isPlayer) {
+                    let myPlayerId = state.currentAccount.id;
+                    const myPlayerObj = getPlayerById(myPlayerId);
+                    const myLeague = myPlayerObj ? myPlayerObj.league : 'A';
+                    let foundPair = null;
+                    if (round.duels && round.duels[myLeague]) {
+                        foundPair = round.duels[myLeague].find(d => d.p1 === myPlayerId || d.p2 === myPlayerId);
+                    }
+
+                    if (foundPair) {
+                        const p1Obj = getPlayerById(foundPair.p1);
+                        const p2Obj = getPlayerById(foundPair.p2);
+                        if (p1NameEl) p1NameEl.textContent = p1Obj ? p1Obj.name : 'Игрок 1';
+                        if (p2NameEl) p2NameEl.textContent = p2Obj ? p2Obj.name : 'Игрок 2';
+
+                        let s1 = 0, s2 = 0;
+                        round.matches.forEach(m => {
+                            if (m.result) {
+                                const p1Pred = round.predictions?.[foundPair.p1]?.[m.id];
+                                const p2Pred = round.predictions?.[foundPair.p2]?.[m.id];
+                                if (p1Pred === m.result) s1++;
+                                if (p2Pred === m.result) s2++;
+                            }
+                        });
+                        if (scoreEl) scoreEl.textContent = `${s1} : ${s2}`;
+                    } else {
+                        if (p1NameEl) p1NameEl.textContent = myPlayerObj ? myPlayerObj.name : 'Участник';
+                        if (p2NameEl) p2NameEl.textContent = 'Нет пары в туре';
+                        if (scoreEl) scoreEl.textContent = '— : —';
+                    }
+                }
+            }
+
+            // Standings preview
+            const standingsPrev = document.getElementById('home-standings-preview');
+            if (standingsPrev) {
+                const leagueAStandings = calculateStandingsForLeague('A').slice(0, 4);
+                const rankColors = ['bg-amber-400 text-slate-950', 'bg-slate-300 text-slate-900', 'bg-amber-600 text-white', 'bg-emerald-100 text-emerald-900'];
+                standingsPrev.innerHTML = leagueAStandings.length === 0
+                    ? '<div class="text-xs text-slate-500 italic py-2 text-center">Нет участников в Лиге А</div>'
+                    : leagueAStandings.map((row, idx) => `
+                    <div onclick="viewPlayerProfile('${row.id}')" class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 hover:bg-emerald-50/70 cursor-pointer transition text-xs">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="w-5 h-5 rounded-lg ${rankColors[idx] || rankColors[3]} flex items-center justify-center font-black text-[11px] shrink-0">${idx + 1}</span>
+                            <span class="font-extrabold text-slate-900 truncate">${row.name}</span>
+                        </div>
+                        <span class="font-black text-emerald-700 shrink-0 ml-2">${row.points} очк.</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Render Predictions View
+        function renderPredictionsView() {
+            const round = state.data.rounds.find(r => r.number === state.selectedRound);
+            if (!round) return;
+
+            const predDuelCard = document.getElementById('pred-duel-score-card');
+            const predMatchesHeader = document.getElementById('predictions-matches-header');
+            if (predDuelCard) {
+                if (!state.currentAccount) {
+                    predDuelCard.classList.add('hidden');
+                } else {
+                    predDuelCard.classList.remove('hidden');
+                }
+            }
+            if (predMatchesHeader) {
+                if (!state.currentAccount) {
+                    predMatchesHeader.classList.add('hidden');
+                } else {
+                    predMatchesHeader.classList.remove('hidden');
+                }
+            }
+
+            const roundLabel = document.getElementById('pred-duel-round-label');
+            const dateBadge = document.getElementById('pred-duel-date-badge');
+            if (roundLabel) roundLabel.textContent = `Тур ${round.number}`;
+            if (dateBadge) dateBadge.textContent = `📅 Дата дуэли: ${round.duelDate || 'Не назначена'}`;
+
+            const isAdmin = isAdminLoggedIn();
+            const isPlayer = state.currentAccount && state.currentAccount.role === 'player';
+            const myPlayerId = isPlayer ? state.currentAccount.id : null;
+            const myPlayer = myPlayerId ? getPlayerById(myPlayerId) : null;
+
+            const myNameEl = document.getElementById('pred-my-name');
+            const rivalNameEl = document.getElementById('pred-rival-name');
+            const scoreValEl = document.getElementById('pred-duel-score-val');
+            if (myNameEl) myNameEl.textContent = isAdmin ? '👑 Админ' : (myPlayer ? myPlayer.name : 'Гость');
+
+            let foundPair = null;
+            if (myPlayer && round.duels && round.duels[myPlayer.league || 'A']) {
+                foundPair = round.duels[myPlayer.league || 'A'].find(d => d.p1 === myPlayerId || d.p2 === myPlayerId);
+            }
+            let rivalPlayer = null;
+            if (foundPair) {
+                const rivalId = foundPair.p1 === myPlayerId ? foundPair.p2 : foundPair.p1;
+                rivalPlayer = getPlayerById(rivalId);
+            }
+            if (rivalNameEl) rivalNameEl.textContent = rivalPlayer ? rivalPlayer.name : '—';
+
+            if (foundPair && myPlayerId) {
+                let s1 = 0, s2 = 0;
+                round.matches.forEach(m => {
+                    if (m.result) {
+                        const p1Pred = round.predictions?.[foundPair.p1]?.[m.id];
+                        const p2Pred = round.predictions?.[foundPair.p2]?.[m.id];
+                        if (p1Pred === m.result) s1++;
+                        if (p2Pred === m.result) s2++;
+                    }
+                });
+                const myScore = foundPair.p1 === myPlayerId ? s1 : s2;
+                const rivalScore = foundPair.p1 === myPlayerId ? s2 : s1;
+                if (scoreValEl) scoreValEl.textContent = `${myScore} : ${rivalScore}`;
+            } else {
+                if (scoreValEl) scoreValEl.textContent = '0 : 0';
+            }
+
+            const matchesContainer = document.getElementById('predictions-matches-container');
+            if (!matchesContainer) return;
+
+            const isLocked = isRoundLockedByTime(round);
+            const myPredictions = (myPlayerId && round.predictions && round.predictions[myPlayerId]) ? round.predictions[myPlayerId] : {};
+
+            if (!state.currentAccount) {
+                matchesContainer.innerHTML = `
+                    <div class="py-12 text-center space-y-4">
+                        <span class="text-4xl block">⚽</span>
+                        <h3 class="font-black text-lg text-slate-900">Доступ ограничен</h3>
+                        <p class="text-xs text-slate-600 font-medium max-w-md mx-auto">Войдите в аккаунт или зарегистрируйтесь, чтобы просматривать матчи тура и делать свои прогнозы.</p>
+                        <button onclick="openAuthModal()" class="px-6 py-2.5 pitch-gradient hover:opacity-95 text-white font-extrabold rounded-xl text-xs transition shadow-md shadow-emerald-600/20">Войти в аккаунт</button>
+                    </div>
+                `;
+                return;
+            }
+
+            if (!round.isPublished && !isAdminLoggedIn()) {
+                matchesContainer.innerHTML = `
+                    <div class="py-10 text-center space-y-3">
+                        <span class="text-3xl block">⏳</span>
+                        <h3 class="font-black text-base text-slate-900">Матчи тура еще формируются</h3>
+                        <p class="text-xs text-slate-600 font-medium">Администратор пока не опубликовал расписание матчей для этого тура. Ожидайте анонса!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            matchesContainer.innerHTML = round.matches.map(m => {
+                const currentChoice = myPredictions[m.id] || '';
+                return `
+                    <div class="bg-slate-50 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <div class="text-center sm:text-left min-w-0 flex-1">
+                            <span class="text-[10px] font-extrabold text-indigo-600 uppercase tracking-wider block mb-0.5">Матч</span>
+                            <span class="font-black text-sm sm:text-base text-slate-900 truncate block">${m.home} — ${m.away}</span>
+                            ${m.result ? `<span class="text-[11px] font-extrabold text-emerald-700 mt-0.5 block">Исход матча: ${m.result}</span>` : ''}
+                        </div>
+                        <div class="flex items-center gap-2 w-full sm:w-auto justify-center">
+                            <button onclick="setPrediction('${m.id}', '1')" ${isLocked ? 'disabled' : ''} class="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-black transition ${currentChoice === '1' ? 'bg-emerald-600 text-white shadow-md' : 'bg-white hover:bg-slate-200 text-slate-800 shadow-sm'}">П1</button>
+                            <button onclick="setPrediction('${m.id}', 'X')" ${isLocked ? 'disabled' : ''} class="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-black transition ${currentChoice === 'X' ? 'bg-amber-500 text-slate-950 shadow-md' : 'bg-white hover:bg-slate-200 text-slate-800 shadow-sm'}">Х</button>
+                            <button onclick="setPrediction('${m.id}', '2')" ${isLocked ? 'disabled' : ''} class="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-black transition ${currentChoice === '2' ? 'bg-sky-600 text-white shadow-md' : 'bg-white hover:bg-slate-200 text-slate-800 shadow-sm'}">П2</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Helper: Calculate player standings statistics across all completed rounds
+        function calculateStandingsForLeague(leagueCode) {
+            const playersInLeague = (state.data.players || []).filter(p => p.league === leagueCode);
+            const stats = {};
+            playersInLeague.forEach(p => {
+                stats[p.id] = { id: p.id, name: p.name, played: 0, wins: 0, draws: 0, losses: 0, points: 0 };
+            });
+
+            state.data.rounds.forEach(round => {
+                const roundDuels = round.duels?.[leagueCode] || [];
+                roundDuels.forEach(pair => {
+                    const p1Id = pair.p1;
+                    const p2Id = pair.p2;
+                    if (!stats[p1Id] || !stats[p2Id]) return;
+
+                    // Check if matchday has at least one result or is simulated
+                    const hasAnyResult = round.matches.some(m => m.result);
+                    if (!hasAnyResult) return;
+
+                    let s1 = 0, s2 = 0;
+                    round.matches.forEach(m => {
+                        if (m.result) {
+                            const p1Pred = round.predictions?.[p1Id]?.[m.id];
+                            const p2Pred = round.predictions?.[p2Id]?.[m.id];
+                            if (p1Pred === m.result) s1++;
+                            if (p2Pred === m.result) s2++;
+                        }
+                    });
+
+                    stats[p1Id].played++;
+                    stats[p2Id].played++;
+
+                    if (s1 > s2) {
+                        stats[p1Id].wins++;
+                        stats[p1Id].points += 3;
+                        stats[p2Id].losses++;
+                    } else if (s2 > s1) {
+                        stats[p2Id].wins++;
+                        stats[p2Id].points += 3;
+                        stats[p1Id].losses++;
+                    } else {
+                        stats[p1Id].draws++;
+                        stats[p1Id].points += 1;
+                        stats[p2Id].draws++;
+                        stats[p2Id].points += 1;
+                    }
+                });
+            });
+
+            return Object.values(stats).sort((a, b) => {
+                if (b.points !== a.points) return b.points - a.points;
+                return (b.wins - a.wins) || (b.played - a.played);
+            });
+        }
+
+        // Render Duels Schedule & Results View
+        window.toggleDuelDetails = function(detailId) {
+            const el = document.getElementById(detailId);
+            const btn = document.getElementById('btn-' + detailId);
+            if (!el) return;
+            const isHidden = el.classList.contains('hidden');
+            if (isHidden) {
+                el.classList.remove('hidden');
+                if (btn) btn.innerHTML = '<span>🔼 Скрыть прогнозы</span>';
+            } else {
+                el.classList.add('hidden');
+                if (btn) btn.innerHTML = '<span>🔍 Подробнее</span>';
+            }
+        };
+
+        function renderDuelsView() {
+            const container = document.getElementById('duels-schedule-container');
+            if (!container) return;
+
+            container.innerHTML = state.data.rounds.map(r => `
+                <div class="bg-indigo-50/70 rounded-2xl p-4 sm:p-5 space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-indigo-200/70">
+                        <span class="font-black text-sm text-indigo-900">Тур ${r.number}</span>
+                        <span class="px-3 py-1 rounded-full bg-white text-xs font-extrabold text-indigo-800 shadow-sm">📅 ${r.duelDate || 'Не назначена'}</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                        ${Object.entries(r.duels || {}).map(([leagueCode, pairs]) => {
+                            const leagueObj = state.data.leagues.find(l => l.code === leagueCode);
+                            const hasAnyResult = r.matches.some(m => m.result);
+                            return `
+                                <div class="bg-white rounded-2xl p-3.5 sm:p-4 shadow-sm space-y-2.5">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs font-black text-emerald-700 uppercase tracking-wider">${leagueObj ? leagueObj.name : `Лига ${leagueCode}`}</span>
+                                        <span class="text-[10px] px-2 py-0.5 rounded-full font-bold ${hasAnyResult ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}">${hasAnyResult ? 'Результаты зафиксированы' : 'Предстоящая дуэль'}</span>
+                                    </div>
+                                    <div class="space-y-2">
+                                        ${pairs.map((pair, pairIdx) => {
+                                            const p1 = getPlayerById(pair.p1);
+                                            const p2 = getPlayerById(pair.p2);
+                                            let s1 = 0, s2 = 0;
+                                            r.matches.forEach(m => {
+                                                if (m.result) {
+                                                    const p1Pred = r.predictions?.[pair.p1]?.[m.id];
+                                                    const p2Pred = r.predictions?.[pair.p2]?.[m.id];
+                                                    if (p1Pred === m.result) s1++;
+                                                    if (p2Pred === m.result) s2++;
+                                                }
+                                            });
+
+                                            const detailId = `duel-details-r${r.number}-${leagueCode}-${pairIdx}`;
+                                            const formatChoice = (val) => val === '1' ? 'П1' : (val === '2' ? 'П2' : (val === 'X' ? 'Х' : '—'));
+
+                                            return `
+                                                <div class="bg-slate-50 p-2.5 rounded-xl space-y-2">
+                                                    <div class="grid grid-cols-11 items-center gap-1 text-xs">
+                                                        <span class="col-span-4 font-extrabold text-slate-900 truncate ${hasAnyResult && s1 > s2 ? 'text-emerald-700' : ''}">${p1 ? p1.name : 'Игрок 1'}</span>
+                                                        <div class="col-span-3 text-center">
+                                                            <span class="inline-block px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-900 font-black font-mono text-xs whitespace-nowrap shadow-sm">${hasAnyResult ? `${s1} : ${s2}` : 'VS'}</span>
+                                                        </div>
+                                                        <span class="col-span-4 font-extrabold text-slate-900 truncate text-right ${hasAnyResult && s2 > s1 ? 'text-emerald-700' : ''}">${p2 ? p2.name : 'Игрок 2'}</span>
+                                                    </div>
+
+                                                    ${hasAnyResult ? `
+                                                        <div class="pt-1 border-t border-slate-200/70 flex justify-center">
+                                                            <button id="btn-${detailId}" onclick="toggleDuelDetails('${detailId}')" class="px-3 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-800 text-[11px] font-extrabold transition flex items-center gap-1">
+                                                                <span>🔍 Подробнее</span>
+                                                            </button>
+                                                        </div>
+                                                        <div id="${detailId}" class="hidden pt-2 border-t border-slate-200/70 space-y-1.5">
+                                                            <div class="grid grid-cols-12 text-[10px] font-extrabold text-slate-500 uppercase px-1.5">
+                                                                <div class="col-span-6">Матч (Итог)</div>
+                                                                <div class="col-span-3 text-center truncate">${p1 ? p1.name.split(' ')[0] : 'И1'}</div>
+                                                                <div class="col-span-3 text-center truncate">${p2 ? p2.name.split(' ')[0] : 'И2'}</div>
+                                                            </div>
+                                                            <div class="space-y-1">
+                                                                ${r.matches.map(m => {
+                                                                    const p1Pred = r.predictions?.[pair.p1]?.[m.id] || '';
+                                                                    const p2Pred = r.predictions?.[pair.p2]?.[m.id] || '';
+                                                                    const p1Hit = m.result && p1Pred === m.result;
+                                                                    const p2Hit = m.result && p2Pred === m.result;
+                                                                    return `
+                                                                        <div class="grid grid-cols-12 items-center bg-white px-2 py-1.5 rounded-lg text-[11px] shadow-2xs">
+                                                                            <div class="col-span-6 pr-1 truncate">
+                                                                                <span class="font-bold text-slate-800">${m.home} — ${m.away}</span>
+                                                                                <span class="ml-1 px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-black text-[10px]">${formatChoice(m.result)}</span>
+                                                                            </div>
+                                                                            <div class="col-span-3 text-center">
+                                                                                <span class="inline-block px-2 py-0.5 rounded font-black text-[10px] ${p1Hit ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}">${formatChoice(p1Pred)}</span>
+                                                                            </div>
+                                                                            <div class="col-span-3 text-center">
+                                                                                <span class="inline-block px-2 py-0.5 rounded font-black text-[10px] ${p2Hit ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}">${formatChoice(p2Pred)}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    `;
+                                                                }).join('')}
+                                                            </div>
+                                                        </div>
+                                                    ` : `
+                                                        <div class="pt-1 text-center">
+                                                            <span class="text-[10px] text-slate-400 font-semibold">Прогнозы откроются после результатов тура</span>
+                                                        </div>
+                                                    `}
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render Standings
+        function renderStandingsView() {
+            const container = document.getElementById('standings-tables-container');
+            if (!container) return;
+
+            container.innerHTML = state.data.leagues.map(league => {
+                const standings = calculateStandingsForLeague(league.code);
+                return `
+                    <div class="bg-emerald-50/70 rounded-2xl p-4 sm:p-5 space-y-3">
+                        <div class="flex items-center justify-between gap-2 pb-1">
+                            <h3 class="font-black text-sm text-emerald-950 uppercase tracking-wider">${league.name}</h3>
+                            <span class="text-xs text-emerald-800 font-extrabold shrink-0">${formatPlayersCount(standings.length)}</span>
+                        </div>
+                        <div class="bg-white rounded-2xl shadow-sm overflow-x-auto">
+                            <table class="w-full text-left text-xs min-w-[340px]">
+                                <thead>
+                                    <tr class="text-slate-700 bg-slate-100 border-b border-slate-200">
+                                        <th class="py-2.5 px-2.5 sm:px-3 font-black">#</th>
+                                        <th class="py-2.5 px-2.5 sm:px-3 font-black">Участник</th>
+                                        <th class="py-2.5 px-2 font-black text-center">И</th>
+                                        <th class="py-2.5 px-2 font-black text-center">В</th>
+                                        <th class="py-2.5 px-2 font-black text-center">Н</th>
+                                        <th class="py-2.5 px-2 font-black text-center">П</th>
+                                        <th class="py-2.5 px-2.5 sm:px-3 font-black text-right">Очки</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    ${standings.length === 0 ? '<tr><td colspan="7" class="py-4 text-center text-slate-500 italic">Нет участников</td></tr>' : standings.map((row, idx) => `
+                                        <tr class="hover:bg-emerald-50/60 transition">
+                                            <td class="py-3 px-2.5 sm:px-3 font-black text-emerald-700">${idx + 1}</td>
+                                            <td class="py-3 px-2.5 sm:px-3 font-extrabold text-slate-900 cursor-pointer hover:text-emerald-700 max-w-[120px] sm:max-w-none truncate" onclick="viewPlayerProfile('${row.id}')">${row.name}</td>
+                                            <td class="py-3 px-2 text-center font-bold text-slate-700">${row.played}</td>
+                                            <td class="py-3 px-2 text-center font-extrabold text-emerald-700">${row.wins}</td>
+                                            <td class="py-3 px-2 text-center font-extrabold text-amber-600">${row.draws}</td>
+                                            <td class="py-3 px-2 text-center font-extrabold text-rose-600">${row.losses}</td>
+                                            <td class="py-3 px-2.5 sm:px-3 text-right font-black text-slate-950 text-sm">${row.points}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Render Forum
+        function renderForumView() {
+            const createWrapper = document.getElementById('forum-create-topic-wrapper');
+            if (createWrapper) {
+                if (isAdminLoggedIn()) {
+                    createWrapper.innerHTML = `
+                        <div class="bg-sky-50/80 p-4 sm:p-5 rounded-2xl space-y-3">
+                            <h3 class="text-xs font-extrabold text-sky-900 uppercase tracking-wider">Создать новую тему (Только для администратора)</h3>
+                            <input type="text" id="forum-new-title" placeholder="Заголовок темы или новости..." class="w-full px-4 py-3 rounded-xl bg-white text-slate-900 placeholder-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm font-semibold">
+                            <textarea id="forum-new-text" rows="3" placeholder="Ваше сообщение..." class="w-full px-4 py-3 rounded-xl bg-white text-slate-900 placeholder-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm font-medium"></textarea>
+                            <button onclick="createForumTopic()" class="px-5 py-2.5 pitch-gradient hover:opacity-95 text-white font-extrabold rounded-xl text-xs transition shadow-sm">Опубликовать</button>
+                        </div>
+                    `;
+                } else {
+                    createWrapper.innerHTML = `
+                        <div class="bg-sky-100/80 p-4 rounded-2xl text-center">
+                            <span class="text-xs text-sky-950 font-bold">💡 Создавать новые темы может только администратор лиги. Оставляйте свои комментарии ниже!</span>
+                        </div>
+                    `;
+                }
+            }
+
+            const container = document.getElementById('forum-topics-container');
+            if (!container) return;
+
+            const topics = state.data.forumTopics || [];
+            container.innerHTML = topics.length === 0 ? '<div class="text-xs text-slate-500 italic py-4 text-center">Пока нет тем для обсуждения</div>' : topics.map(t => `
+                <div class="bg-slate-50 rounded-2xl p-4 sm:p-5 space-y-4">
+                    <div class="pb-2 border-b border-slate-200">
+                        <h4 class="font-black text-base text-slate-900">${t.title}</h4>
+                        <span class="text-xs text-indigo-700 font-extrabold">Автор: ${t.author} • ${t.date}</span>
+                    </div>
+                    <p class="text-xs sm:text-sm text-slate-800 font-medium leading-relaxed">${t.text}</p>
+                    
+                    <div class="space-y-3 pt-1">
+                        <span class="text-xs font-extrabold text-slate-700 block">Комментарии (${t.comments.length})</span>
+                        <div class="space-y-2">
+                            ${t.comments.map(c => `
+                                <div class="bg-white p-3 rounded-xl shadow-sm text-xs space-y-1">
+                                    <span class="font-extrabold text-emerald-800">${c.author}</span>
+                                    <p class="text-slate-800 font-medium">${c.text}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="flex gap-2 pt-1">
+                            <input type="text" id="forum-comment-${t.id}" placeholder="Ваш комментарий..." class="flex-1 px-3.5 py-2.5 rounded-xl bg-white shadow-sm text-xs text-slate-900 placeholder-slate-400 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                            <button onclick="addForumComment('${t.id}')" class="px-4 py-2.5 pitch-gradient hover:opacity-95 text-white font-extrabold rounded-xl text-xs transition shrink-0">Ответить</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.createForumTopic = async function() {
+            if (!isAdminLoggedIn()) {
+                showToast('Создавать темы может только администратор', 'error');
+                return;
+            }
+            const title = (document.getElementById('forum-new-title')?.value || '').trim();
+            const text = (document.getElementById('forum-new-text')?.value || '').trim();
+            if (!title || !text) return;
+
+            state.data.forumTopics.unshift({
+                id: 'f_' + Date.now(),
+                author: 'Администратор',
+                title,
+                text,
+                date: new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }),
+                comments: []
+            });
+
+            document.getElementById('forum-new-title').value = '';
+            document.getElementById('forum-new-text').value = '';
+            await saveState('Тема успешно создана!');
+        };
+
+        window.addForumComment = async function(topicId) {
+            const input = document.getElementById(`forum-comment-${topicId}`);
+            if (!input) return;
+            const text = input.value.trim();
+            if (!text) return;
+
+            const topic = state.data.forumTopics.find(t => t.id === topicId);
+            if (!topic) return;
+
+            const authorName = state.currentAccount ? (state.currentAccount.role === 'admin' ? 'Администратор' : (getPlayerById(state.currentAccount.id)?.name || 'Участник')) : 'Гость';
+            topic.comments.push({ author: authorName, text });
+            input.value = '';
+            await saveState('Комментарий добавлен!');
+        };
+
+        // Render Profile
+        function renderProfileView() {
+            const container = document.getElementById('profile-container');
+            if (!container) return;
+
+            let targetId = state.viewedProfileId;
+            if (!targetId) {
+                if (!state.currentAccount) {
+                    container.innerHTML = `
+                        <div class="py-10 text-center space-y-4">
+                            <span class="text-4xl block">⚽</span>
+                            <h3 class="font-black text-lg text-slate-900">Гостевой режим</h3>
+                            <p class="text-xs text-slate-700 font-medium max-w-md mx-auto">Вы вышли из аккаунта. Авторизуйтесь, чтобы просматривать и редактировать свой профиль, награды и статистику.</p>
+                            <button onclick="openAuthModal()" class="px-6 py-2.5 pitch-gradient hover:opacity-95 text-white font-extrabold rounded-xl text-xs transition shadow-md shadow-emerald-600/20">Войти в аккаунт</button>
+                        </div>
+                    `;
+                    return;
+                }
+                if (state.currentAccount.role === 'admin') {
+                    container.innerHTML = `
+                        <div class="flex flex-col sm:flex-row items-center gap-5 pb-5 border-b border-slate-100">
+                            <div class="w-20 h-20 rounded-3xl gold-gradient shadow-md flex items-center justify-center font-black text-3xl text-white">👑</div>
+                            <div class="text-center sm:text-left space-y-1">
+                                <h2 class="font-black text-xl sm:text-2xl text-slate-900">Администратор системы</h2>
+                                <span class="inline-block px-3 py-1 rounded-full bg-amber-100 text-amber-900 font-extrabold text-xs">Роль: Суперадмин</span>
+                                <span class="text-xs text-slate-600 font-semibold block mt-1">Полный доступ ко всем функциям турнира</span>
+                            </div>
+                        </div>
+                        <div class="bg-amber-50/70 p-5 rounded-2xl space-y-2">
+                            <h3 class="text-xs font-extrabold text-amber-900 uppercase tracking-wider">Привилегии администратора</h3>
+                            <p class="text-xs text-slate-800 font-medium leading-relaxed">Вы можете управлять расписанием матчей, публиковать туры участникам, одобрять регистрации, распределять игроков по дивизионам и выдавать награды.</p>
+                        </div>
+                    `;
+                    return;
+                } else {
+                    targetId = state.currentAccount.id;
+                }
+            }
+
+            const player = getPlayerById(targetId);
+            if (!player) {
+                container.innerHTML = '<div class="text-xs text-slate-500 italic">Профиль не найден</div>';
+                return;
+            }
+
+            const isMyProfile = state.currentAccount && state.currentAccount.role === 'player' && state.currentAccount.id === player.id;
+            const leagueObj = state.data.leagues.find(l => l.code === player.league);
+
+            container.innerHTML = `
+                <div class="flex flex-col sm:flex-row items-center gap-5 pb-5 border-b border-slate-100">
+                    <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl pitch-gradient overflow-hidden shadow-md flex items-center justify-center font-black text-3xl text-white shrink-0">
+                        ${player.avatar ? `<img src="${player.avatar}" alt="Avatar" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='https://placehold.co/150x150/059669/ffffff?text=⚽';">` : '⚽'}
+                    </div>
+                    <div class="text-center sm:text-left space-y-1">
+                        <h2 class="font-black text-xl sm:text-2xl text-slate-900">${player.name}</h2>
+                        <span class="inline-block px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 font-extrabold text-xs">Лига: ${leagueObj ? leagueObj.name : (player.league || 'Без лиги')}</span>
+                        <span class="text-xs text-slate-600 font-bold block font-mono mt-1">Логин: @${player.login || player.id}</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div class="bg-emerald-50/70 p-5 rounded-2xl space-y-3">
+                        <h3 class="text-xs font-extrabold text-emerald-900 uppercase tracking-wider">Карточка игрока</h3>
+                        <div class="space-y-2 text-xs">
+                            <div class="flex justify-between py-2 border-b border-emerald-200/70"><span class="text-slate-700 font-semibold">Любимый клуб:</span><span class="font-extrabold text-slate-950">${player.favoriteClub || 'Не указан'}</span></div>
+                            <div class="flex justify-between py-2 border-b border-emerald-200/70"><span class="text-slate-700 font-semibold">О себе:</span><span class="font-extrabold text-slate-950">${player.bio || 'Нет описания'}</span></div>
+                        </div>
+
+                        <div class="pt-2">
+                            <span class="text-xs font-extrabold text-slate-700 block mb-2">Трофеи и медали:</span>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                ${(player.awards || []).length === 0 ? '<span class="text-xs text-slate-500 italic">Пока нет наград</span>' : (player.awards || []).map(aCode => {
+                                    const info = AVAILABLE_AWARDS[aCode] || { name: aCode, icon: '🏅' };
+                                    return `<span class="px-3 py-1 rounded-xl bg-amber-100 text-amber-900 text-xs font-extrabold flex items-center gap-1.5 shadow-sm"><span>${info.icon}</span><span>${info.name}</span></span>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </div>
+
+                    ${isMyProfile ? `
+                        <div class="bg-sky-50/70 p-5 rounded-2xl space-y-3">
+                            <h3 class="text-xs font-extrabold text-sky-900 uppercase tracking-wider">Редактировать профиль</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Имя</label>
+                                    <input type="text" id="profile-edit-name" value="${player.name}" class="w-full px-3.5 py-2.5 rounded-xl bg-white shadow-sm text-xs text-slate-900 font-semibold focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">URL аватара</label>
+                                    <input type="text" id="profile-edit-avatar" value="${player.avatar || ''}" class="w-full px-3.5 py-2.5 rounded-xl bg-white shadow-sm text-xs text-slate-900 font-semibold focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Любимый клуб</label>
+                                    <input type="text" id="profile-edit-club" value="${player.favoriteClub || ''}" class="w-full px-3.5 py-2.5 rounded-xl bg-white shadow-sm text-xs text-slate-900 font-semibold focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">О себе</label>
+                                    <textarea id="profile-edit-bio" rows="2" class="w-full px-3.5 py-2.5 rounded-xl bg-white shadow-sm text-xs text-slate-900 font-semibold focus:outline-none">${player.bio || ''}</textarea>
+                                </div>
+                                <button onclick="updateMyProfile()" class="w-full py-2.5 pitch-gradient hover:opacity-95 text-white font-extrabold rounded-xl text-xs transition shadow-sm">Сохранить изменения</button>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        // Render Admin View
+        function renderAdminView() {
+            if (!isAdminLoggedIn()) return;
+
+            const roundSelect = document.getElementById('admin-round-select');
+            if (roundSelect) {
+                roundSelect.innerHTML = state.data.rounds.map(r => `<option value="${r.number}" ${state.selectedRound === r.number ? 'selected' : ''}>Тур ${r.number}</option>`).join('');
+            }
+
+            const round = state.data.rounds.find(r => r.number === state.selectedRound);
+            if (round) {
+                const dateInp = document.getElementById('admin-round-duel-date-input');
+                const timeInp = document.getElementById('admin-round-start-time-input');
+                if (dateInp) dateInp.value = round.duelDate || '';
+                if (timeInp) timeInp.value = round.startTime || '';
+
+                const matchesList = document.getElementById('admin-matches-list');
+                if (matchesList) {
+                    matchesList.innerHTML = round.matches.map(m => `
+                        <div class="bg-white rounded-2xl p-3 shadow-sm space-y-2">
+                            <div class="flex items-center gap-1.5">
+                                <input type="text" value="${m.home}" onchange="updateMatchTeam('${m.id}', 'home', this.value)" class="w-full min-w-0 px-2.5 py-1.5 bg-slate-100 text-slate-900 text-xs font-bold rounded-xl focus:outline-none">
+                                <span class="text-xs font-bold text-slate-400 shrink-0">—</span>
+                                <input type="text" value="${m.away}" onchange="updateMatchTeam('${m.id}', 'away', this.value)" class="w-full min-w-0 px-2.5 py-1.5 bg-slate-100 text-slate-900 text-xs font-bold rounded-xl focus:outline-none">
+                            </div>
+                            <div class="flex items-center justify-between pt-1">
+                                <span class="text-[11px] text-slate-400 font-bold">Исход:</span>
+                                <div class="flex items-center gap-1">
+                                    <button onclick="setMatchResult('${m.id}', '1')" class="px-2.5 py-1 rounded-lg text-xs font-black ${m.result === '1' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}">П1</button>
+                                    <button onclick="setMatchResult('${m.id}', 'X')" class="px-2.5 py-1 rounded-lg text-xs font-black ${m.result === 'X' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}">Х</button>
+                                    <button onclick="setMatchResult('${m.id}', '2')" class="px-2.5 py-1 rounded-lg text-xs font-black ${m.result === '2' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}">П2</button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            // Users management with pagination (5 per page)
+            const allPlayers = state.data.players || [];
+            const pageSize = 5;
+            const totalPages = Math.max(1, Math.ceil(allPlayers.length / pageSize));
+            if (state.adminUsersPage > totalPages) state.adminUsersPage = totalPages;
+
+            const startIdx = (state.adminUsersPage - 1) * pageSize;
+            const pagePlayers = allPlayers.slice(startIdx, startIdx + pageSize);
+
+            const usersCounter = document.getElementById('admin-users-counter');
+            const pageIndicator = document.getElementById('admin-users-page-indicator');
+            const adminUsersList = document.getElementById('admin-users-list');
+
+            if (usersCounter) usersCounter.textContent = `Всего: ${allPlayers.length}`;
+            if (pageIndicator) pageIndicator.textContent = `Стр. ${state.adminUsersPage} / ${totalPages}`;
+
+            if (adminUsersList) {
+                adminUsersList.innerHTML = pagePlayers.length === 0 ? '<div class="text-xs text-slate-400 italic py-2">Нет зарегистрированных пользователей</div>' : pagePlayers.map(p => `
+                    <div class="bg-white rounded-2xl p-3 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                        <div class="min-w-0">
+                            <span class="font-extrabold text-slate-900 block truncate">${p.name}</span>
+                            <span class="text-[11px] text-slate-400 font-mono block truncate">@${p.login || p.id} | Пароль: <span class="text-emerald-600 font-bold">${p.password || '1234'}</span></span>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full inline-block mt-1 font-bold ${p.isConfirmed ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}">${p.isConfirmed ? 'Подтвержден' : 'Ожидает'}</span>
+                        </div>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <button onclick="toggleUserConfirmation('${p.id}')" class="px-3 py-1.5 rounded-xl font-extrabold transition ${p.isConfirmed ? 'bg-amber-50 text-amber-700 hover:bg-amber-100' : 'bg-emerald-600 text-white hover:bg-emerald-700'}">${p.isConfirmed ? 'Снять' : 'Подтвердить'}</button>
+                            <button onclick="deleteUserFromSystem('${p.id}')" class="px-3 py-1.5 rounded-xl font-extrabold bg-rose-50 text-rose-600 hover:bg-rose-100 transition">Удалить</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            const assignUserSelect = document.getElementById('admin-assign-user-id');
+            const assignLeagueSelect = document.getElementById('admin-assign-user-league');
+            if (assignUserSelect && assignLeagueSelect) {
+                assignUserSelect.innerHTML = allPlayers.map(p => `<option value="${p.id}">${p.name} (@${p.login || p.id}) — ${p.league ? `Лига ${p.league}` : 'Без лиги'}</option>`).join('');
+                assignLeagueSelect.innerHTML = state.data.leagues.map(l => `<option value="${l.code}">Лига ${l.code}</option>`).join('');
+            }
+
+            const deleteLeagueSelect = document.getElementById('admin-delete-league-code');
+            if (deleteLeagueSelect) {
+                deleteLeagueSelect.innerHTML = state.data.leagues.map(l => `<option value="${l.code}">Лига ${l.code} (${l.name})</option>`).join('');
+            }
+
+            const awardSelect = document.getElementById('admin-award-player');
+            if (awardSelect) {
+                awardSelect.innerHTML = allPlayers.map(p => `<option value="${p.id}">${p.name} (${p.league ? `Лига ${p.league}` : 'Без лиги'})</option>`).join('');
+            }
+
+            const awardedListContainer = document.getElementById('admin-awarded-list');
+            if (awardedListContainer) {
+                const awardedPlayers = allPlayers.filter(p => p.awards && p.awards.length > 0);
+                awardedListContainer.innerHTML = awardedPlayers.length === 0 ? '<div class="text-xs text-slate-400 italic py-2">Пока нет награжденных участников</div>' : awardedPlayers.map(p => `
+                    <div class="py-2 flex items-center justify-between gap-2 text-xs border-b border-slate-200/70">
+                        <span class="font-extrabold text-slate-800">${p.name}</span>
+                        <div class="flex items-center gap-1 flex-wrap">
+                            ${p.awards.map(aCode => {
+                                const info = AVAILABLE_AWARDS[aCode] || { name: aCode, icon: '🏅' };
+                                return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-50 text-amber-700 text-[10px] font-bold"><span>${info.icon}</span><span>${info.name}</span><button onclick="revokeAwardAdmin('${p.id}', '${aCode}')" class="text-rose-500 hover:text-rose-700 ml-1 font-black">×</button></span>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            const leaguesPlayersContainer = document.getElementById('admin-leagues-players-container');
+            if (leaguesPlayersContainer) {
+                leaguesPlayersContainer.innerHTML = state.data.leagues.map(league => {
+                    const leaguePlayers = allPlayers.filter(p => p.league === league.code);
+                    return `
+                        <div class="bg-white rounded-2xl p-3.5 shadow-sm space-y-2">
+                            <div class="flex items-center justify-between text-xs font-extrabold text-emerald-700 pb-1.5 border-b border-slate-100">
+                                <span>${league.name}</span>
+                                <span>${formatPlayersCount(leaguePlayers.length)}</span>
+                            </div>
+                            <div class="space-y-1.5 max-h-40 overflow-y-auto">
+                                ${leaguePlayers.length === 0 ? '<div class="text-[11px] text-slate-400 italic">Нет участников</div>' : leaguePlayers.map(p => `
+                                    <div class="flex items-center justify-between p-2 rounded-xl bg-slate-50 text-xs">
+                                        <span class="font-bold text-slate-800 truncate">${p.name}</span>
+                                        <button onclick="removePlayerAdmin('${p.id}')" class="text-rose-600 hover:text-rose-700 font-extrabold text-[11px] shrink-0 ml-2">Удалить</button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Duel Draw Preview in Admin
+            const drawRoundLabel = document.getElementById('admin-draw-round-label');
+            const drawPreviewContainer = document.getElementById('admin-draw-preview-container');
+            if (drawRoundLabel) drawRoundLabel.textContent = `Тур ${round.number}`;
+            if (drawPreviewContainer) {
+                const roundDuels = round.duels || {};
+                drawPreviewContainer.innerHTML = state.data.leagues.map(l => {
+                    const pairs = roundDuels[l.code] || [];
+                    return `
+                        <div>
+                            <span class="text-xs font-extrabold text-violet-900 uppercase block mb-1">${l.name} (Тур ${round.number}):</span>
+                            <div class="space-y-1">
+                                ${pairs.length === 0 ? '<span class="text-[11px] text-slate-400 italic">Дуэли еще не сформированы (нажмите жеребьевку)</span>' : pairs.map(p => {
+                                    const p1Obj = getPlayerById(p.p1);
+                                    const p2Obj = getPlayerById(p.p2);
+                                    return `<div class="text-xs bg-violet-50/50 p-2 rounded-xl flex items-center justify-between"><span class="font-bold text-slate-800">${p1Obj ? p1Obj.name : '?'}</span><span class="text-violet-600 font-black">VS</span><span class="font-bold text-slate-800">${p2Obj ? p2Obj.name : '?'}</span></div>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        window.addPlayerAdmin = async function() {
+            if (!isAdminLoggedIn()) return;
+            const nameEl = document.getElementById('admin-new-player-name');
+            const loginEl = document.getElementById('admin-new-player-login');
+            const passEl = document.getElementById('admin-new-player-pass');
+            const leagueEl = document.getElementById('admin-new-player-league');
+            if (!nameEl || !loginEl || !passEl || !leagueEl) return;
+
+            const name = nameEl.value.trim();
+            const login = loginEl.value.trim().toLowerCase();
+            const password = passEl.value.trim() || '1234';
+            const league = leagueEl.value || 'B';
+
+            if (!name || !login) return;
+            if (login === 'admin' || state.data.players.some(p => (p.login || p.id).toLowerCase() === login)) {
+                showToast('Такой логин уже существует!', 'error');
+                return;
+            }
+
+            state.data.players.push({
+                id: 'P_' + Date.now(),
+                name,
+                league,
+                login,
+                password,
+                favoriteClub: 'Не указан',
+                bio: 'Добавлен администратором',
+                avatar: '',
+                awards: [],
+                isConfirmed: true
+            });
+
+            nameEl.value = '';
+            loginEl.value = '';
+            passEl.value = '';
+            await saveState(`Участник ${name} добавлен в лигу!`);
+        };
+
+        window.assignRegisteredUserToLeague = async function() {
+            if (!isAdminLoggedIn()) return;
+            const userId = document.getElementById('admin-assign-user-id')?.value;
+            const targetLeague = document.getElementById('admin-assign-user-league')?.value;
+            const player = getPlayerById(userId);
+            if (!player) return;
+
+            player.league = targetLeague;
+            player.isConfirmed = true;
+            await saveState(`Участник ${player.name} закреплен за Лигой ${targetLeague} и подтвержден!`);
+        };
+
+        window.removePlayerAdmin = async function(playerId) {
+            if (!isAdminLoggedIn()) return;
+            const player = getPlayerById(playerId);
+            if (!player) return;
+            player.league = '';
+            await saveState(`Участник ${player.name} исключен из лиги (аккаунт остался в системе)`);
+        };
+
+        window.deleteUserFromSystem = async function(playerId) {
+            if (!isAdminLoggedIn()) return;
+            const player = getPlayerById(playerId);
+            if (!player) return;
+            state.data.players = state.data.players.filter(p => p.id !== playerId);
+            await saveState(`Пользователь ${player.name} полностью удален из системы`);
+        };
+
+        window.toggleUserConfirmation = async function(playerId) {
+            if (!isAdminLoggedIn()) return;
+            const p = getPlayerById(playerId);
+            if (!p) return;
+            p.isConfirmed = !p.isConfirmed;
+            await saveState(p.isConfirmed ? `Регистрация участника ${p.name} подтверждена!` : `Статус подтверждения участника ${p.name} снят.`);
+        };
+
+        window.changeAdminUsersPage = function(newPage) {
+            const allPlayers = state.data.players || [];
+            const pageSize = 5;
+            const totalPages = Math.max(1, Math.ceil(allPlayers.length / pageSize));
+            if (newPage >= 1 && newPage <= totalPages) {
+                state.adminUsersPage = newPage;
+                renderAdminView();
+            }
+        };
+
+        window.addLeagueAdmin = async function() {
+            if (!isAdminLoggedIn()) return;
+            const codeEl = document.getElementById('admin-new-league-code');
+            const nameEl = document.getElementById('admin-new-league-name');
+            if (!codeEl || !nameEl) return;
+            const code = codeEl.value.trim().toUpperCase();
+            const name = nameEl.value.trim();
+            if (!code || !name) return;
+
+            if (state.data.leagues.some(l => l.code === code)) {
+                showToast('Лига с таким кодом уже существует', 'error');
+                return;
+            }
+
+            state.data.leagues.push({ code, name });
+            codeEl.value = '';
+            nameEl.value = '';
+            await saveState(`Лига "${name}" успешно создана!`);
+        };
+
+        window.deleteLeagueAdmin = async function() {
+            if (!isAdminLoggedIn()) return;
+            const leagueCode = document.getElementById('admin-delete-league-code')?.value;
+            if (!leagueCode) return;
+
+            if (state.data.leagues.length <= 1) {
+                showToast('Нельзя удалить последнюю оставшуюся лигу в турнире', 'error');
+                return;
+            }
+
+            const leagueObj = state.data.leagues.find(l => l.code === leagueCode);
+            const leagueName = leagueObj ? leagueObj.name : leagueCode;
+
+            // Remove league code from leagues array
+            state.data.leagues = state.data.leagues.filter(l => l.code !== leagueCode);
+
+            // Unassign or move players who were in this league to empty league ''
+            state.data.players.forEach(p => {
+                if (p.league === leagueCode) {
+                    p.league = '';
+                }
+            });
+
+            await saveState(`Лига "${leagueName}" удалена. Участники переведены в статус "Без лиги".`);
+        };
+
+        window.grantAwardAdmin = async function() {
+            if (!isAdminLoggedIn()) return;
+            const playerId = document.getElementById('admin-award-player')?.value;
+            const awardType = document.getElementById('admin-award-type')?.value;
+            const player = getPlayerById(playerId);
+            if (!player || !awardType) return;
+
+            if (!player.awards) player.awards = [];
+            if (!player.awards.includes(awardType)) {
+                player.awards.push(awardType);
+                await saveState(`Награда успешно выдана участнику ${player.name}!`);
+            } else {
+                showToast('У этого участника уже есть такая награда', 'error');
+            }
+        };
+
+        window.revokeAwardAdmin = async function(playerId, awardType) {
+            if (!isAdminLoggedIn()) return;
+            const player = getPlayerById(playerId);
+            if (!player || !player.awards) return;
+            player.awards = player.awards.filter(a => a !== awardType);
+            await saveState(`Награда удалена у участника ${player.name}`);
+        };
+
+        window.updateMatchTeam = function(matchId, field, value) {
+            if (!isAdminLoggedIn()) return;
+            state.data.rounds.forEach(r => {
+                r.matches.forEach(m => {
+                    if (m.id === matchId) m[field] = value;
+                });
+            });
+            saveSessionLocal();
+        };
+
+        window.updateRoundDuelDate = function(roundNumber, value) {
+            if (!isAdminLoggedIn()) return;
+            const round = state.data.rounds.find(r => r.number === Number(roundNumber));
+            if (round) {
+                round.duelDate = value;
+                saveSessionLocal();
+                showToast('Дата дуэлей тура обновлена');
+            }
+        };
+
+        window.updateRoundStartTime = function(roundNumber, value) {
+            if (!isAdminLoggedIn()) return;
+            const round = state.data.rounds.find(r => r.number === Number(roundNumber));
+            if (round) {
+                round.startTime = value;
+                saveSessionLocal();
+                showToast('Время дедлайна тура обновлено');
+            }
+        };
+
+        window.setMatchResult = async function(matchId, result) {
+            if (!isAdminLoggedIn()) return;
+            state.data.rounds.forEach(r => {
+                r.matches.forEach(m => {
+                    if (m.id === matchId) m.result = result;
+                });
+            });
+            await saveState('Результат матча обновлен!');
+        };
+
+        window.publishRoundMatchesToPlayers = async function() {
+            if (!isAdminLoggedIn()) return;
+            const round = state.data.rounds.find(r => r.number === state.selectedRound);
+            if (!round) return;
+
+            round.isPublished = true;
+            state.data.forumTopics.unshift({
+                id: 'f_' + Date.now(),
+                author: 'Администратор',
+                title: `Опубликованы матчи Тура ${round.number}!`,
+                text: `Список матчей Тура ${round.number} (дата дуэли: ${round.duelDate || 'не указана'}) отправлен всем участникам. Прием прогнозов открыт во вкладке «Прогнозы»!`,
+                date: new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }),
+                comments: []
+            });
+
+            await saveState(`Матчи Тура ${round.number} успешно отправлены участникам!`);
+        };
+
+        window.performDuelDrawForRound = async function() {
+            if (!isAdminLoggedIn()) return;
+            const round = state.data.rounds.find(r => r.number === state.selectedRound);
+            if (!round) return;
+
+            const newDuels = {};
+            state.data.leagues.forEach(league => {
+                const leaguePlayers = [...(state.data.players || []).filter(p => p.league === league.code && p.isConfirmed)];
+                for (let i = leaguePlayers.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [leaguePlayers[i], leaguePlayers[j]] = [leaguePlayers[j], leaguePlayers[i]];
+                }
+
+                const pairs = [];
+                for (let i = 0; i < leaguePlayers.length - 1; i += 2) {
+                    pairs.push({ p1: leaguePlayers[i].id, p2: leaguePlayers[i+1].id });
+                }
+                newDuels[league.code] = pairs;
+            });
+
+            round.duels = newDuels;
+            await saveState(`Жеребьевка дуэлей для Тура ${round.number} успешно проведена!`);
+        };
+
+        window.performFullRoundRobinDraw = async function() {
+            if (!isAdminLoggedIn()) return;
+            
+            const rounds = state.data.rounds;
+            const numRounds = rounds.length;
+
+            state.data.leagues.forEach(league => {
+                let players = [...(state.data.players || []).filter(p => p.league === league.code && p.isConfirmed)];
+                if (players.length < 2) return;
+
+                // If odd number of players, add a dummy/bye player
+                let hasBye = false;
+                if (players.length % 2 !== 0) {
+                    players.push({ id: 'BYE', name: 'Бай (отдых)' });
+                    hasBye = true;
+                }
+
+                const n = players.length;
+                const totalRounds = n - 1;
+
+                // Generate round-robin schedule using polygon algorithm
+                let schedule = []; // array of rounds, each containing pairs
+                let rotatingPlayers = [...players.slice(1)];
+
+                for (let r = 0; r < totalRounds; r++) {
+                    const roundPairs = [];
+                    const roundParticipants = [players[0], ...rotatingPlayers];
+
+                    for (let i = 0; i < n / 2; i++) {
+                        const p1 = roundParticipants[i];
+                        const p2 = roundParticipants[n - 1 - i];
+
+                        if (p1.id !== 'BYE' && p2.id !== 'BYE') {
+                            roundPairs.push({ p1: p1.id, p2: p2.id });
+                        }
+                    }
+                    schedule.push(roundPairs);
+
+                    // Rotate array
+                    const last = rotatingPlayers.pop();
+                    rotatingPlayers.unshift(last);
+                }
+
+                // Assign schedule to tournament rounds (looping if rounds > totalRounds)
+                for (let rIdx = 0; rIdx < rounds.length; rIdx++) {
+                    const schedIdx = rIdx % schedule.length;
+                    if (!rounds[rIdx].duels) rounds[rIdx].duels = {};
+                    rounds[rIdx].duels[league.code] = schedule[schedIdx];
+                }
+            });
+
+            await saveState('Круговая жеребьевка (каждый с каждым) успешно проведена на все туры сезона!');
+        };
+
+        window.simulateRoundResults = async function() {
+            if (!isAdminLoggedIn()) return;
+            const round = state.data.rounds.find(r => r.number === state.selectedRound);
+            if (!round) return;
+
+            const outcomes = ['1', 'X', '2'];
+            round.matches.forEach(m => {
+                if (!m.result) {
+                    m.result = outcomes[Math.floor(Math.random() * outcomes.length)];
+                }
+            });
+
+            await saveState(`Итоги тура ${round.number} успешно симулированы!`);
+        };
+
+        window.confirmResetCloudData = function() {
+            const m = document.getElementById('reset-confirm-modal');
+            if (m) { m.classList.remove('hidden'); m.classList.add('flex'); }
+        };
+
+        window.closeResetConfirmModal = function() {
+            const m = document.getElementById('reset-confirm-modal');
+            if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
+        };
+
+        window.executeResetSeason = async function() {
+            if (!isAdminLoggedIn()) return;
+            window.closeResetConfirmModal();
+            localStorage.removeItem('predict_league_app_data');
+            localStorage.removeItem('predict_league_session');
+            state.data = createInitialTournamentData();
+            state.currentAccount = null;
+            state.selectedRound = 1;
+            renderAll();
+            showToast('Сезон полностью сброшен к начальному состоянию!');
+        };
+
+        window.selectRound = function(num) {
+            state.selectedRound = num;
+            renderAll();
+        };
+
+        window.selectAdminRound = function(num) {
+            state.selectedRound = Number(num);
+            renderAdminView();
+        };
+
+        window.setPrediction = function(matchId, choice) {
+            const isPlayer = state.currentAccount && state.currentAccount.role === 'player';
+            if (!isPlayer) {
+                showToast('Делать прогнозы могут только зарегистрированные участники', 'error');
+                return;
+            }
+            const round = state.data.rounds.find(r => r.number === state.selectedRound);
+            if (!round) return;
+
+            if (isRoundLockedByTime(round)) {
+                showToast('Дедлайн наступил! Прогнозы заблокированы за 5 минут до матча.', 'error');
+                return;
+            }
+
+            const playerId = state.currentAccount.id;
+            if (!round.predictions) round.predictions = {};
+            if (!round.predictions[playerId]) round.predictions[playerId] = {};
+
+            if (round.predictions[playerId][matchId] === choice) {
+                delete round.predictions[playerId][matchId];
+            } else {
+                round.predictions[playerId][matchId] = choice;
+            }
+
+            renderPredictionsView();
+        };
+
+        window.saveUserPredictions = async function() {
+            const round = state.data.rounds.find(r => r.number === state.selectedRound);
+            if (!round) return;
+            if (isRoundLockedByTime(round)) {
+                showToast('Дедлайн наступил! Сохранение прогнозов невозможно.', 'error');
+                return;
+            }
+            await saveState('Прогнозы успешно сохранены!');
+        };
+
+        function usernameEmail(username) { return username.toLowerCase().replace(/[^a-z0-9._-]/g, '') + '@pickarena.invalid'; }
+        window.handleLogin = async function() {
+            if (!cloudReady && !initCloud()) { showToast('Настройте Supabase в supabase-config.js', 'error'); return; }
+            const login = (document.getElementById('login-username')?.value || '').trim().toLowerCase();
+            const password = document.getElementById('login-password')?.value || '';
+            if (!/^[a-z0-9._-]{3,24}$/.test(login) || !password) { showToast('Логин: 3–24 символа (латиница, цифры, . _ -)', 'error'); return; }
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email: usernameEmail(login), password });
+            if (error) { showToast('Неверный логин или пароль', 'error'); return; }
+            const { data: profile, error: profileError } = await supabaseClient.from('pickarena_profiles').select('id, username, display_name, role, league').eq('id', data.user.id).single();
+            if (profileError || !profile) { await supabaseClient.auth.signOut(); showToast('Профиль не найден. Обратитесь к администратору.', 'error'); return; }
+            state.currentAccount = { role: profile.role, id: profile.id, name: profile.display_name, login: profile.username };
+            await loadSessionLocal(); closeAuthModal(); renderAll(); showToast('Добро пожаловать, ' + profile.display_name + '!');
+        };
+
+        window.quickLoginAs = function() { showToast('Быстрый тестовый вход отключён в онлайн-версии', 'error'); };
+
+        window.handleRegister = async function() {
+            if (!cloudReady && !initCloud()) { showToast('Настройте Supabase в supabase-config.js', 'error'); return; }
+            const name = (document.getElementById('reg-name')?.value || '').trim();
+            const login = (document.getElementById('reg-username')?.value || '').trim().toLowerCase();
+            const password = document.getElementById('reg-password')?.value || '';
+            const league = document.getElementById('reg-league')?.value || 'B';
+            if (!name || !/^[a-z0-9._-]{3,24}$/.test(login) || password.length < 8) { showToast('Укажите имя, логин 3–24 символа и пароль не короче 8 символов', 'error'); return; }
+            const { data, error } = await supabaseClient.auth.signUp({ email: usernameEmail(login), password, options: { data: { username: login, display_name: name } } });
+            if (error) { showToast('Ошибка регистрации: ' + error.message, 'error'); return; }
+            if (!data.session) { showToast('Регистрация создана. Включите отключение подтверждения email в Supabase Auth или настройте серверную регистрацию username.', 'error'); return; }
+            const { error: profileError } = await supabaseClient.rpc('pickarena_register_player', { p_username: login, p_display_name: name, p_league: league });
+            if (profileError) { showToast('Аккаунт создан, но профиль не создан: ' + profileError.message, 'error'); return; }
+            state.currentAccount = { role: 'player', id: data.user.id, name, login };
+            await loadSessionLocal(); closeAuthModal(); renderAll(); showToast('Регистрация завершена. Ожидайте подтверждения администратора.');
+        };
+
+        window.logoutAccount = async function() {
+            if (supabaseClient) await supabaseClient.auth.signOut();
+            state.currentAccount = null;
+            state.viewedProfileId = null;
+            state.hasUnsavedPredictions = false;
+            localStorage.removeItem('predict_league_session');
+            if (state.currentTab === 'admin' || state.currentTab === 'profile' || state.currentTab === 'predictions') {
+                switchTab('home');
+            } else {
+                renderAll();
+            }
+            showToast('Вы вышли из аккаунта');
+        };
+
+        window.setAuthMode = function(mode) {
+            const loginForm = document.getElementById('login-form');
+            const registerForm = document.getElementById('register-form');
+            const btnLogin = document.getElementById('auth-tab-login');
+            const btnReg = document.getElementById('auth-tab-register');
+            if (!loginForm || !registerForm || !btnLogin || !btnReg) return;
+
+            if (mode === 'login') {
+                loginForm.classList.remove('hidden');
+                registerForm.classList.add('hidden');
+                btnLogin.className = 'flex-1 py-2 text-xs font-extrabold rounded-xl bg-emerald-600 text-white transition shadow-sm';
+                btnReg.className = 'flex-1 py-2 text-xs font-bold rounded-xl text-slate-600 hover:text-slate-900 transition';
+            } else {
+                loginForm.classList.add('hidden');
+                registerForm.classList.remove('hidden');
+                btnReg.className = 'flex-1 py-2 text-xs font-extrabold rounded-xl bg-emerald-600 text-white transition shadow-sm';
+                btnLogin.className = 'flex-1 py-2 text-xs font-bold rounded-xl text-slate-600 hover:text-slate-900 transition';
+            }
+        };
+
+        window.updateMyProfile = async function() {
+            if (!state.currentAccount || state.currentAccount.role !== 'player') return;
+            const player = getPlayerById(state.currentAccount.id);
+            if (!player) return;
+
+            const name = document.getElementById('profile-edit-name')?.value.trim();
+            const avatar = document.getElementById('profile-edit-avatar')?.value.trim();
+            const favoriteClub = document.getElementById('profile-edit-club')?.value.trim();
+            const bio = document.getElementById('profile-edit-bio')?.value.trim();
+
+            if (name) player.name = name;
+            player.avatar = avatar || '';
+            player.favoriteClub = favoriteClub || 'Не указан';
+            player.bio = bio || '';
+
+            state.currentAccount.name = player.name;
+            await saveState('Профиль успешно обновлен!');
+        };
+
+        window.viewPlayerProfile = function(playerId) {
+            state.viewedProfileId = playerId;
+            switchTab('profile');
+        };
+
+        window.renderAll = function() {
+            if (state.currentTab === 'admin' && !isAdminLoggedIn()) {
+                state.currentTab = 'home';
+            }
+            renderAuthHeader();
+            renderRoundSelector();
+            renderHomeForumNews();
+            renderPredictionsView();
+            renderDuelsView();
+            renderStandingsView();
+            renderForumView();
+            renderProfileView();
+            if (isAdminLoggedIn()) {
+                renderAdminView();
+            }
+        };
+
+        window.onload = async function() {
+            renderAll();
+            await loadSessionLocal();
+            renderAll();
+            if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+        };
+    </script>
+</body>
+</html>

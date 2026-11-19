@@ -1,0 +1,11 @@
+{
+  "name": "PickArena — футбольные прогнозы",
+  "short_name": "PickArena",
+  "description": "Платформа футбольных прогнозов и дуэлей",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ecfdf5",
+  "theme_color": "#047857",
+  "icons": [{ "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
