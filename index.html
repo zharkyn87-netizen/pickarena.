@@ -2042,7 +2042,19 @@
             const { data, error } = await supabaseClient.auth.signInWithPassword({ email: usernameEmail(login), password });
             if (error) { showToast('Неверный логин или пароль', 'error'); return; }
             const { data: profile, error: profileError } = await supabaseClient.from('pickarena_profiles').select('id, username, display_name, role, league').eq('id', data.user.id).single();
-            if (profileError || !profile) { await supabaseClient.auth.signOut(); showToast('Профиль не найден. Обратитесь к администратору.', 'error'); return; }
+            if (profileError || !profile) {
+    console.error('PICKARENA PROFILE ERROR:', profileError);
+    console.error('AUTH USER ID:', data.user?.id);
+    console.error('PROFILE DATA:', profile);
+
+    await supabaseClient.auth.signOut();
+
+    showToast(
+        'Ошибка профиля: ' + (profileError?.message || 'Профиль не найден'),
+        'error'
+    );
+    return;
+}
             state.currentAccount = { role: profile.role, id: profile.id, name: profile.display_name, login: profile.username };
             await loadSessionLocal(); closeAuthModal(); renderAll(); showToast('Добро пожаловать, ' + profile.display_name + '!');
         };
