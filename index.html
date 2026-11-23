@@ -108,13 +108,6 @@
                     <label class="block text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-1.5">Пароль</label>
                     <input type="password" id="reg-password" placeholder="••••••••" class="w-full px-4 py-3 rounded-xl bg-slate-100 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-semibold transition">
                 </div>
-                <div>
-                    <label class="block text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-1.5">Желаемая лига</label>
-                    <select id="reg-league" class="w-full px-4 py-3 rounded-xl bg-slate-100 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-semibold transition">
-                        <option value="A">Лига А (Высший дивизион)</option>
-                        <option value="B" selected>Лига Б (Первый дивизион)</option>
-                    </select>
-                </div>
                 <button onclick="handleRegister()" class="w-full py-3.5 pitch-gradient hover:opacity-95 text-white font-extrabold rounded-xl shadow-lg shadow-emerald-600/30 transition transform active:scale-95 text-sm">Зарегистрироваться</button>
             </div>
         </div>
@@ -612,11 +605,11 @@
                         duelDate: '20 ноября 2026',
                         startTime: '2026-11-20T18:00',
                         matches: [
-                            { id: 'm1', home: 'Арсенал', away: 'Челси', result: '1' },
-                            { id: 'm2', home: 'Реал Мадрид', away: 'Барселона', result: 'X' },
-                            { id: 'm3', home: 'Бавария', away: 'Боруссия Д', result: '2' },
-                            { id: 'm4', home: 'Интер', away: 'Милан', result: '1' },
-                            { id: 'm5', home: 'ПСЖ', away: 'Марсель', result: '1' }
+                            { id: 'm1', home: 'Арсенал', away: 'Челси', result: '' },
+                            { id: 'm2', home: 'Реал Мадрид', away: 'Барселона', result: '' },
+                            { id: 'm3', home: 'Бавария', away: 'Боруссия Д', result: '' },
+                            { id: 'm4', home: 'Интер', away: 'Милан', result: '' },
+                            { id: 'm5', home: 'ПСЖ', away: 'Марсель', result: '' }
                         ],
                         duels: {
                             A: [ { p1: 'P1', p2: 'P2' }, { p1: 'P3', p2: 'P4' } ],
@@ -703,7 +696,7 @@
             }
             const { data: authData } = await supabaseClient.auth.getSession();
             if (authData.session) {
-                const { data: profile } = await supabaseClient.from('pickarena_profiles').select('id, username, display_name, role, league').eq('id', authData.session.user.id).single();
+                const { data: profile } = await supabaseClient.from('pickarena_profiles').select('id, username, display_name, role, league, avatar, favorite_club, bio').eq('id', authData.session.user.id).single();
                 if (profile) state.currentAccount = { role: profile.role, id: profile.id, name: profile.display_name, login: profile.username };
             }
             const { data: cloudState, error } = await supabaseClient.from('pickarena_state').select('data').eq('id', 1).maybeSingle();
@@ -715,8 +708,20 @@
                     const round = state.data.rounds.find(r => r.number === row.round_number);
                     if (round) { if (!round.predictions) round.predictions = {}; round.predictions[state.currentAccount.id] = row.predictions || {}; }
                 });
-                const { data: me } = await supabaseClient.from('pickarena_profiles').select('id, username, display_name, role, league').eq('id', state.currentAccount.id).single();
-                if (me && !state.data.players.some(p => p.id === me.id)) state.data.players.push({ id: me.id, name: me.display_name, login: me.username, league: me.league || '', favoriteClub: 'Не указан', bio: '', avatar: '', awards: [], isConfirmed: false });
+                const { data: me } = await supabaseClient.from('pickarena_profiles').select('id, username, display_name, role, league, avatar, favorite_club, bio').eq('id', state.currentAccount.id).single();
+                if (me) {
+                    let player = state.data.players.find(p => p.id === me.id);
+                    if (!player) {
+                        player = { id: me.id, name: me.display_name, login: me.username, league: me.league || '', favoriteClub: 'Не указан', bio: '', avatar: '', awards: [], isConfirmed: false };
+                        state.data.players.push(player);
+                    }
+                    player.name = me.display_name || player.name;
+                    player.login = me.username || player.login;
+                    player.league = me.league || '';
+                    player.avatar = me.avatar || '';
+                    player.favoriteClub = me.favorite_club || 'Не указан';
+                    player.bio = me.bio || '';
+                }
             }
         }
         async function saveState(toastMsg = 'Изменения сохранены!') {
@@ -807,7 +812,7 @@
             let tabs = [
                 { id: 'home', name: 'Главная', icon: '🏟️', activeBg: 'bg-emerald-600', pillBg: 'bg-emerald-50 text-emerald-900' },
                 { id: 'predictions', name: 'Прогнозы', icon: '⚽', activeBg: 'bg-sky-600', pillBg: 'bg-sky-50 text-sky-900' },
-                { id: 'duels', name: 'Дуэли', icon: '⚔️', activeBg: 'bg-indigo-600', pillBg: 'bg-indigo-50 text-indigo-900' },
+                { id: 'duels', name: 'Матчапы', icon: '⚔️', activeBg: 'bg-indigo-600', pillBg: 'bg-indigo-50 text-indigo-900' },
                 { id: 'standings', name: 'Таблица', icon: '🏆', activeBg: 'bg-amber-500', pillBg: 'bg-amber-50 text-amber-900' },
                 { id: 'forum', name: 'Новости', icon: '💬', activeBg: 'bg-teal-600', pillBg: 'bg-teal-50 text-teal-900' },
                 { id: 'profile', name: 'Профиль', icon: '👤', activeBg: 'bg-violet-600', pillBg: 'bg-violet-50 text-violet-900' }
@@ -1169,6 +1174,10 @@
         function renderDuelsView() {
             const container = document.getElementById('duels-schedule-container');
             if (!container) return;
+            if (state.data.duelDrawCompleted !== true) {
+                container.innerHTML = '<div class="bg-indigo-50 rounded-2xl p-6 text-center text-sm font-bold text-indigo-800">Матчапы появятся после того, как администратор проведёт жеребьёвку на все туры.</div>';
+                return;
+            }
 
             container.innerHTML = state.data.rounds.map(r => `
                 <div class="bg-indigo-50/70 rounded-2xl p-4 sm:p-5 space-y-4">
@@ -1177,7 +1186,7 @@
                         <span class="px-3 py-1 rounded-full bg-white text-xs font-extrabold text-indigo-800 shadow-sm">📅 ${r.duelDate || 'Не назначена'}</span>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                        ${Object.entries(r.duels || {}).map(([leagueCode, pairs]) => {
+                        ${Object.entries(r.duels || {}).filter(([leagueCode]) => state.data.leagues.some(l => l.code === leagueCode)).map(([leagueCode, pairs]) => {
                             const leagueObj = state.data.leagues.find(l => l.code === leagueCode);
                             const hasAnyResult = r.matches.some(m => m.result);
                             return `
@@ -1340,7 +1349,10 @@
             container.innerHTML = topics.length === 0 ? '<div class="text-xs text-slate-500 italic py-4 text-center">Пока нет тем для обсуждения</div>' : topics.map(t => `
                 <div class="bg-slate-50 rounded-2xl p-4 sm:p-5 space-y-4">
                     <div class="pb-2 border-b border-slate-200">
-                        <h4 class="font-black text-base text-slate-900">${t.title}</h4>
+                        <div class="flex items-start justify-between gap-2">
+                            <h4 class="font-black text-base text-slate-900">${t.title}</h4>
+                            ${isAdminLoggedIn() ? `<button onclick="deleteForumTopic('${t.id}')" class="text-[11px] font-extrabold text-rose-600">Удалить тему</button>` : ''}
+                        </div>
                         <span class="text-xs text-indigo-700 font-extrabold">Автор: ${t.author} • ${t.date}</span>
                     </div>
                     <p class="text-xs sm:text-sm text-slate-800 font-medium leading-relaxed">${t.text}</p>
@@ -1348,10 +1360,13 @@
                     <div class="space-y-3 pt-1">
                         <span class="text-xs font-extrabold text-slate-700 block">Комментарии (${t.comments.length})</span>
                         <div class="space-y-2">
-                            ${t.comments.map(c => `
+                            ${t.comments.map((c, commentIndex) => `
                                 <div class="bg-white p-3 rounded-xl shadow-sm text-xs space-y-1">
                                     <span class="font-extrabold text-emerald-800">${c.author}</span>
-                                    <p class="text-slate-800 font-medium">${c.text}</p>
+                                    <div class="flex items-start justify-between gap-2">
+                                        <p class="text-slate-800 font-medium">${c.text}</p>
+                                        ${isAdminLoggedIn() ? `<button onclick="deleteForumComment('${t.id}', ${commentIndex})" class="text-[10px] font-extrabold text-rose-600 shrink-0">Удалить</button>` : ''}
+                                    </div>
                                 </div>
                             `).join('')}
                         </div>
@@ -1363,6 +1378,22 @@
                 </div>
             `).join('');
         }
+
+        window.deleteForumTopic = async function(topicId) {
+            if (!isAdminLoggedIn()) return;
+            if (!confirm('Удалить эту новость вместе со всеми комментариями?')) return;
+            state.data.forumTopics = (state.data.forumTopics || []).filter(t => t.id !== topicId);
+            await saveState('Новость и её комментарии удалены.');
+        };
+
+        window.deleteForumComment = async function(topicId, commentIndex) {
+            if (!isAdminLoggedIn()) return;
+            const topic = (state.data.forumTopics || []).find(t => t.id === topicId);
+            if (!topic || !Array.isArray(topic.comments) || !topic.comments[commentIndex]) return;
+            if (!confirm('Удалить этот комментарий?')) return;
+            topic.comments.splice(commentIndex, 1);
+            await saveState('Комментарий удалён.');
+        };
 
         window.createForumTopic = async function() {
             if (!isAdminLoggedIn()) {
@@ -1540,6 +1571,7 @@
                                     <button onclick="setMatchResult('${m.id}', '1')" class="px-2.5 py-1 rounded-lg text-xs font-black ${m.result === '1' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}">П1</button>
                                     <button onclick="setMatchResult('${m.id}', 'X')" class="px-2.5 py-1 rounded-lg text-xs font-black ${m.result === 'X' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}">Х</button>
                                     <button onclick="setMatchResult('${m.id}', '2')" class="px-2.5 py-1 rounded-lg text-xs font-black ${m.result === '2' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}">П2</button>
+                                    <button onclick="setMatchResult('${m.id}', '')" title="Очистить результат" class="px-2.5 py-1 rounded-lg text-xs font-black ${!m.result ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'}">Сброс</button>
                                 </div>
                             </div>
                         </div>
@@ -1779,6 +1811,9 @@
             // Remove league code from leagues array
             state.data.leagues = state.data.leagues.filter(l => l.code !== leagueCode);
 
+            // Remove deleted league pairings from every round
+            (state.data.rounds || []).forEach(r => { if (r.duels) delete r.duels[leagueCode]; });
+
             // Unassign or move players who were in this league to empty league ''
             state.data.players.forEach(p => {
                 if (p.league === leagueCode) {
@@ -1946,6 +1981,7 @@
                 }
             });
 
+            state.data.duelDrawCompleted = true;
             await saveState('Круговая жеребьевка (каждый с каждым) успешно проведена на все туры сезона!');
         };
 
@@ -2041,7 +2077,7 @@
             if (!/^[a-z0-9._-]{3,24}$/.test(login) || !password) { showToast('Логин: 3–24 символа (латиница, цифры, . _ -)', 'error'); return; }
             const { data, error } = await supabaseClient.auth.signInWithPassword({ email: usernameEmail(login), password });
             if (error) { showToast('Неверный логин или пароль', 'error'); return; }
-            const { data: profile, error: profileError } = await supabaseClient.from('pickarena_profiles').select('id, username, display_name, role, league').eq('id', data.user.id).single();
+            const { data: profile, error: profileError } = await supabaseClient.from('pickarena_profiles').select('id, username, display_name, role, league, avatar, favorite_club, bio').eq('id', data.user.id).single();
             if (profileError || !profile) {
     console.error('PICKARENA PROFILE ERROR:', profileError);
     console.error('AUTH USER ID:', data.user?.id);
@@ -2066,12 +2102,11 @@
             const name = (document.getElementById('reg-name')?.value || '').trim();
             const login = (document.getElementById('reg-username')?.value || '').trim().toLowerCase();
             const password = document.getElementById('reg-password')?.value || '';
-            const league = document.getElementById('reg-league')?.value || 'B';
             if (!name || !/^[a-z0-9._-]{3,24}$/.test(login) || password.length < 8) { showToast('Укажите имя, логин 3–24 символа и пароль не короче 8 символов', 'error'); return; }
             const { data, error } = await supabaseClient.auth.signUp({ email: usernameEmail(login), password, options: { data: { username: login, display_name: name } } });
             if (error) { showToast('Ошибка регистрации: ' + error.message, 'error'); return; }
             if (!data.session) { showToast('Регистрация создана. Включите отключение подтверждения email в Supabase Auth или настройте серверную регистрацию username.', 'error'); return; }
-            const { error: profileError } = await supabaseClient.rpc('pickarena_register_player', { p_username: login, p_display_name: name, p_league: league });
+            const { error: profileError } = await supabaseClient.rpc('pickarena_register_player', { p_username: login, p_display_name: name, p_league: '' });
             if (profileError) { showToast('Аккаунт создан, но профиль не создан: ' + profileError.message, 'error'); return; }
             state.currentAccount = { role: 'player', id: data.user.id, name, login };
             await loadSessionLocal(); closeAuthModal(); renderAll(); showToast('Регистрация завершена. Ожидайте подтверждения администратора.');
@@ -2121,13 +2156,25 @@
             const favoriteClub = document.getElementById('profile-edit-club')?.value.trim();
             const bio = document.getElementById('profile-edit-bio')?.value.trim();
 
+            const { error } = await supabaseClient.rpc('pickarena_update_my_profile', {
+                p_display_name: name || player.name,
+                p_avatar: avatar || '',
+                p_favorite_club: favoriteClub || '',
+                p_bio: bio || ''
+            });
+            if (error) {
+                showToast('Не удалось сохранить профиль: ' + error.message, 'error');
+                return;
+            }
+
             if (name) player.name = name;
             player.avatar = avatar || '';
             player.favoriteClub = favoriteClub || 'Не указан';
             player.bio = bio || '';
-
             state.currentAccount.name = player.name;
-            await saveState('Профиль успешно обновлен!');
+            saveSessionLocal();
+            renderAll();
+            showToast('Профиль успешно обновлен!');
         };
 
         window.viewPlayerProfile = function(playerId) {
