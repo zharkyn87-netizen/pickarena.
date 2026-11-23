@@ -1421,16 +1421,54 @@
         window.addForumComment = async function(topicId) {
             const input = document.getElementById(`forum-comment-${topicId}`);
             if (!input) return;
-            const text = input.value.trim();
-            if (!text) return;
+            const commentText = input.value.trim();
+            if (!commentText) return;
 
-            const topic = state.data.forumTopics.find(t => t.id === topicId);
-            if (!topic) return;
+            if (!state.currentAccount) {
+                showToast('Войдите в аккаунт, чтобы оставить комментарий', 'error');
+                return;
+            }
 
-            const authorName = state.currentAccount ? (state.currentAccount.role === 'admin' ? 'Администратор' : (getPlayerById(state.currentAccount.id)?.name || 'Участник')) : 'Гость';
-            topic.comments.push({ author: authorName, text });
+            const topic = (state.data.forumTopics || []).find(t => t.id === topicId);
+            if (!topic) {
+                showToast('Тема не найдена. Обновите страницу.', 'error');
+                return;
+            }
+
+            if (state.currentAccount.role === 'admin') {
+                topic.comments = topic.comments || [];
+                topic.comments.push({ author: 'Администратор', text: commentText });
+                input.value = '';
+                await saveState('Комментарий добавлен!');
+                return;
+            }
+
+            if (state.currentAccount.role !== 'player') {
+                showToast('У вас нет прав для добавления комментария', 'error');
+                return;
+            }
+
+            if (!cloudReady || !supabaseClient) {
+                showToast('Облачное подключение не настроено', 'error');
+                return;
+            }
+
+            const { error } = await supabaseClient.rpc('pickarena_add_forum_comment', {
+                p_topic_id: String(topicId),
+                p_text: commentText
+            });
+
+            if (error) {
+                showToast('Не удалось сохранить комментарий: ' + error.message, 'error');
+                return;
+            }
+
+            const authorName = getPlayerById(state.currentAccount.id)?.name || state.currentAccount.name || 'Участник';
+            topic.comments = topic.comments || [];
+            topic.comments.push({ author: authorName, text: commentText });
             input.value = '';
-            await saveState('Комментарий добавлен!');
+            renderForumView();
+            showToast('Комментарий сохранён!');
         };
 
         // Render Profile
