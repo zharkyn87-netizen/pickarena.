@@ -1315,6 +1315,8 @@
                                             });
 
                                             const detailId = `duel-details-r${r.number}-${leagueCode}-${pairIdx}`;
+                                            const p1HasSavedPrediction = !!(r.predictions?.[pair.p1] && Object.keys(r.predictions[pair.p1]).length > 0);
+                                            const p2HasSavedPrediction = !!(r.predictions?.[pair.p2] && Object.keys(r.predictions[pair.p2]).length > 0);
                                             const formatChoice = (val) => val === '1' ? 'П1' : (val === '2' ? 'П2' : (val === 'X' ? 'Х' : '—'));
 
                                             return `
@@ -1322,6 +1324,7 @@
                                                     <div class="grid grid-cols-11 items-center gap-1.5 text-xs">
                                                         <div class="col-span-4 min-w-0">
                                                             <span class="inline-flex w-full min-w-0 items-center gap-2 align-middle font-extrabold text-slate-900 ${hasAnyResult && s1 > s2 ? 'text-emerald-700' : ''}">
+                                                                <span title="${p1HasSavedPrediction ? 'Прогноз сохранён' : 'Прогноз не сохранён'}" aria-label="${p1HasSavedPrediction ? 'Прогноз сохранён' : 'Прогноз не сохранён'}" class="w-2 h-2 rounded-full shrink-0 ${p1HasSavedPrediction ? 'bg-emerald-500 shadow-[0_0_0_2px_rgba(16,185,129,0.15)]' : 'bg-slate-300'}"></span>
                                                                 ${p1 ? `${avatarMarkup(p1, 'w-7 h-7')}<span class="relative -top-0.5 min-w-0 truncate">${p1.name}</span>` : '<span class="truncate">Игрок 1</span>'}
                                                             </span>
                                                         </div>
@@ -1331,6 +1334,7 @@
                                                         <div class="col-span-4 min-w-0">
                                                             <span class="inline-flex w-full min-w-0 items-center justify-end gap-2 align-middle font-extrabold text-slate-900 ${hasAnyResult && s2 > s1 ? 'text-emerald-700' : ''}">
                                                                 ${p2 ? `<span class="relative -top-0.5 min-w-0 truncate text-right">${p2.name}</span>${avatarMarkup(p2, 'w-7 h-7')}` : '<span class="truncate">Игрок 2</span>'}
+                                                                <span title="${p2HasSavedPrediction ? 'Прогноз сохранён' : 'Прогноз не сохранён'}" aria-label="${p2HasSavedPrediction ? 'Прогноз сохранён' : 'Прогноз не сохранён'}" class="w-2 h-2 rounded-full shrink-0 ${p2HasSavedPrediction ? 'bg-emerald-500 shadow-[0_0_0_2px_rgba(16,185,129,0.15)]' : 'bg-slate-300'}"></span>
                                                             </span>
                                                         </div>
                                                     </div>
