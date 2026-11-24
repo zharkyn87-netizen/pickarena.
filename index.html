@@ -588,16 +588,7 @@
                     { code: 'A', name: 'Лига А (Высший дивизион)' },
                     { code: 'B', name: 'Лига Б (Первый дивизион)' }
                 ],
-                players: [
-                    { id: 'P1', name: 'Алексей Смирнов', league: 'A', login: 'ivan', favoriteClub: 'Спартак', bio: 'Люблю футбол и тактические прогнозы.', avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150', awards: ['gold'], isConfirmed: true },
-                    { id: 'P2', name: 'Дмитрий Васильев', league: 'A', login: 'dmitry', favoriteClub: 'Зенит', bio: 'Играю на победу в каждом туре.', avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150', awards: ['sniper'], isConfirmed: true },
-                    { id: 'P3', name: 'Михаил Петров', league: 'A', login: 'mikhail', favoriteClub: 'ЦСКА', bio: 'Прогнозист со стажем.', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', awards: [], isConfirmed: true },
-                    { id: 'P4', name: 'Евгений Орлов', league: 'A', login: 'evgeny', favoriteClub: 'Динамо', bio: 'Только вперед!', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150', awards: ['bronze'], isConfirmed: true },
-                    { id: 'P5', name: 'Сергей Иванов', league: 'B', login: 'sergey', favoriteClub: 'Локомотив', bio: 'Начинающий участник Лиги Б.', avatar: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=150', awards: [], isConfirmed: true },
-                    { id: 'P6', name: 'Артем Ковалев', league: 'B', login: 'artem', favoriteClub: 'Краснодар', bio: 'Цель - выйти в Лигу А.', avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=150', awards: [], isConfirmed: true },
-                    { id: 'P7', name: 'Павел Морозов', league: 'B', login: 'pavel', favoriteClub: 'Ростов', bio: 'Люблю анализировать матчи.', avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150', awards: [], isConfirmed: true },
-                    { id: 'P8', name: 'Николай Новиков', league: 'B', login: 'nikolay', favoriteClub: 'Рубин', bio: 'Всем удачи в прогнозах!', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', awards: [], isConfirmed: true }
-                ],
+                players: [                ],
                 rounds: [
                     {
                         number: 1,
@@ -703,6 +694,19 @@
             const { data: cloudState, error } = await supabaseClient.from('pickarena_state').select('data').eq('id', 1).maybeSingle();
             if (!error && cloudState && cloudState.data) state.data = cloudState.data;
             else if (state.currentAccount && state.currentAccount.role === 'admin') { await supabaseClient.from('pickarena_state').upsert({ id: 1, data: state.data }); }
+
+            // Remove legacy demo participants from the public tournament state.
+            // They are not real registered accounts and must not appear in standings.
+            const demoPlayerIds = new Set(['P1','P2','P3','P4','P5','P6','P7','P8']);
+            state.data.players = (state.data.players || []).filter(p => !demoPlayerIds.has(String(p.id)));
+            (state.data.rounds || []).forEach(round => {
+                demoPlayerIds.forEach(id => { if (round.predictions) delete round.predictions[id]; });
+                if (round.duels && typeof round.duels === 'object') {
+                    Object.keys(round.duels).forEach(leagueCode => {
+                        round.duels[leagueCode] = (round.duels[leagueCode] || []).filter(pair => !demoPlayerIds.has(String(pair.p1)) && !demoPlayerIds.has(String(pair.p2)));
+                    });
+                }
+            });
 
             // Load public profile fields for every authenticated user.
             // Keep all profiles separately so admins can have avatars without
