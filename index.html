@@ -753,12 +753,25 @@
                 state.currentAccount.avatar = state.publicProfiles[state.currentAccount.id].avatar || state.currentAccount.avatar || '';
             }
 
-            if (state.currentAccount && state.currentAccount.role === 'player') {
-                const { data: rows } = await supabaseClient.from('pickarena_predictions').select('round_number, predictions').eq('player_id', state.currentAccount.id);
-                (rows || []).forEach(row => {
-                    const round = state.data.rounds.find(r => r.number === row.round_number);
-                    if (round) { if (!round.predictions) round.predictions = {}; round.predictions[state.currentAccount.id] = row.predictions || {}; }
-                });
+            // Load ALL participants' predictions so every account sees the same
+            // predictions, scores, duel results, and standings. RLS must allow
+            // authenticated users to SELECT the shared prediction rows.
+            if (state.currentAccount) {
+                const { data: rows, error: predictionsLoadError } = await supabaseClient
+                    .from('pickarena_predictions')
+                    .select('player_id, round_number, predictions');
+                if (predictionsLoadError) {
+                    console.error('Не удалось загрузить общие прогнозы:', predictionsLoadError);
+                    showToast('Не удалось загрузить общие прогнозы: ' + predictionsLoadError.message, 'error');
+                } else {
+                    (rows || []).forEach(row => {
+                        const round = state.data.rounds.find(r => r.number === row.round_number);
+                        if (round && row.player_id) {
+                            if (!round.predictions) round.predictions = {};
+                            round.predictions[row.player_id] = row.predictions || {};
+                        }
+                    });
+                }
                 const { data: me } = await supabaseClient.from('pickarena_profiles').select('id, username, display_name, role, league, avatar, favorite_club, bio').eq('id', state.currentAccount.id).single();
                 if (me) {
                     let player = state.data.players.find(p => p.id === me.id);
