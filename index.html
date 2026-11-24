@@ -662,6 +662,9 @@
             adminUsersPage: 1,
             currentAccount: null,
             publicProfiles: {},
+            // Snapshot of predictions confirmed as saved in Supabase, keyed by round and player.
+            // This is intentionally separate from editable in-memory predictions.
+            savedPredictions: {},
             viewedProfileId: null,
             hasUnsavedPredictions: false,
             data: createInitialTournamentData()
@@ -761,6 +764,7 @@
             // predictions, scores, duel results, and standings. RLS must allow
             // authenticated users to SELECT the shared prediction rows.
             if (state.currentAccount) {
+                state.savedPredictions = {};
                 const { data: rows, error: predictionsLoadError } = await supabaseClient
                     .from('pickarena_predictions')
                     .select('player_id, round_number, predictions');
@@ -773,6 +777,8 @@
                         if (round && row.player_id) {
                             if (!round.predictions) round.predictions = {};
                             round.predictions[row.player_id] = row.predictions || {};
+                            if (!state.savedPredictions[row.round_number]) state.savedPredictions[row.round_number] = {};
+                            state.savedPredictions[row.round_number][row.player_id] = { ...(row.predictions || {}) };
                         }
                     });
                 }
@@ -817,6 +823,11 @@
                 const predictions = round?.predictions?.[state.currentAccount.id] || {};
                 const result = await supabaseClient.rpc('pickarena_save_predictions', { p_round_number: state.selectedRound, p_predictions: predictions });
                 error = result.error;
+                if (!error) {
+                    if (!state.savedPredictions) state.savedPredictions = {};
+                    if (!state.savedPredictions[state.selectedRound]) state.savedPredictions[state.selectedRound] = {};
+                    state.savedPredictions[state.selectedRound][state.currentAccount.id] = { ...predictions };
+                }
             }
             if (error) { showToast('Не удалось сохранить в облако: ' + error.message, 'error'); return; }
             saveSessionLocal(); renderAll(); showToast(toastMsg);
@@ -1315,8 +1326,16 @@
                                             });
 
                                             const detailId = `duel-details-r${r.number}-${leagueCode}-${pairIdx}`;
-                                            const p1HasSavedPrediction = !!(r.predictions?.[pair.p1] && Object.keys(r.predictions[pair.p1]).length > 0);
-                                            const p2HasSavedPrediction = !!(r.predictions?.[pair.p2] && Object.keys(r.predictions[pair.p2]).length > 0);
+                                            // A green indicator requires BOTH a published round and at least one
+                                            // valid pick from the Supabase-confirmed saved snapshot for this round.
+                                            // Lottery data and unsaved edits in r.predictions do not count.
+                                            const hasSavedPickForPlayer = (playerId) => {
+                                                if (r.isPublished !== true || !(r.matches || []).length || !playerId) return false;
+                                                const saved = state.savedPredictions?.[r.number]?.[playerId] || {};
+                                                return (r.matches || []).some(match => ['1', 'X', '2'].includes(saved[match.id]));
+                                            };
+                                            const p1HasSavedPrediction = hasSavedPickForPlayer(pair.p1);
+                                            const p2HasSavedPrediction = hasSavedPickForPlayer(pair.p2);
                                             const formatChoice = (val) => val === '1' ? 'П1' : (val === '2' ? 'П2' : (val === 'X' ? 'Х' : '—'));
 
                                             return `
