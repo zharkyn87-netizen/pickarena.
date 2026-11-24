@@ -940,7 +940,7 @@
         function renderRoundSelector() {
             const wrapper = document.getElementById('global-round-selector-wrapper');
             if (wrapper) {
-                if (!state.currentAccount || (state.currentTab !== 'home' && state.currentTab !== 'predictions')) {
+                if (!state.currentAccount || state.currentTab !== 'predictions') {
                     wrapper.classList.add('hidden');
                 } else {
                     wrapper.classList.remove('hidden');
@@ -993,7 +993,8 @@
                 }
             }
 
-            const round = state.data.rounds.find(r => r.number === state.selectedRound);
+            const orderedRounds = (state.data.rounds || []).slice().sort((a, b) => Number(a.number) - Number(b.number));
+            const round = orderedRounds.find(r => (r.matches || []).length === 0 || (r.matches || []).some(m => !m.result)) || orderedRounds[orderedRounds.length - 1];
             if (round && state.currentAccount) {
                 const roundLabel = document.getElementById('home-duel-round-label');
                 const dateBadge = document.getElementById('home-duel-date-badge');
@@ -2085,57 +2086,107 @@
 
         window.performFullRoundRobinDraw = async function() {
             if (!isAdminLoggedIn()) return;
-            
-            const rounds = state.data.rounds;
-            const numRounds = rounds.length;
 
-            state.data.leagues.forEach(league => {
-                let players = [...(state.data.players || []).filter(p => p.league === league.code && p.isConfirmed)];
-                if (players.length < 2) return;
+            const leagues = state.data.leagues || [];
+            const playersByLeague = {};
+            const schedulesByLeague = {};
+            let requiredRounds = 0;
 
-                // If odd number of players, add a dummy/bye player
-                let hasBye = false;
-                if (players.length % 2 !== 0) {
-                    players.push({ id: 'BYE', name: 'Бай (отдых)' });
-                    hasBye = true;
+            // Build a separate one-leg round-robin schedule for each league.
+            leagues.forEach(league => {
+                const players = [...(state.data.players || []).filter(p =>
+                    p.league === league.code && p.isConfirmed
+                )];
+                playersByLeague[league.code] = players;
+                if (players.length < 2) {
+                    schedulesByLeague[league.code] = [];
+                    return;
                 }
 
-                const n = players.length;
-                const totalRounds = n - 1;
+                // Even number: N-1 rounds. Odd number: N rounds (one bye per round).
+                const rotation = [...players];
+                if (rotation.length % 2 !== 0) {
+                    rotation.push({ id: '__BYE__', name: 'Пропуск тура' });
+                }
 
-                // Generate round-robin schedule using polygon algorithm
-                let schedule = []; // array of rounds, each containing pairs
-                let rotatingPlayers = [...players.slice(1)];
+                const count = rotation.length;
+                const totalRounds = count - 1;
+                const schedule = [];
+                let rotating = rotation.slice(1);
 
-                for (let r = 0; r < totalRounds; r++) {
-                    const roundPairs = [];
-                    const roundParticipants = [players[0], ...rotatingPlayers];
-
-                    for (let i = 0; i < n / 2; i++) {
-                        const p1 = roundParticipants[i];
-                        const p2 = roundParticipants[n - 1 - i];
-
-                        if (p1.id !== 'BYE' && p2.id !== 'BYE') {
-                            roundPairs.push({ p1: p1.id, p2: p2.id });
+                for (let roundIndex = 0; roundIndex < totalRounds; roundIndex++) {
+                    const participants = [rotation[0], ...rotating];
+                    const pairs = [];
+                    for (let i = 0; i < count / 2; i++) {
+                        const p1 = participants[i];
+                        const p2 = participants[count - 1 - i];
+                        if (p1.id !== '__BYE__' && p2.id !== '__BYE__') {
+                            pairs.push({ p1: p1.id, p2: p2.id });
                         }
                     }
-                    schedule.push(roundPairs);
-
-                    // Rotate array
-                    const last = rotatingPlayers.pop();
-                    rotatingPlayers.unshift(last);
+                    schedule.push(pairs);
+                    const last = rotating.pop();
+                    rotating.unshift(last);
                 }
 
-                // Assign schedule to tournament rounds (looping if rounds > totalRounds)
-                for (let rIdx = 0; rIdx < rounds.length; rIdx++) {
-                    const schedIdx = rIdx % schedule.length;
-                    if (!rounds[rIdx].duels) rounds[rIdx].duels = {};
-                    rounds[rIdx].duels[league.code] = schedule[schedIdx];
-                }
+                schedulesByLeague[league.code] = schedule;
+                requiredRounds = Math.max(requiredRounds, totalRounds);
             });
 
+            if (requiredRounds < 1) {
+                showToast('В лигах должно быть не менее двух подтверждённых участников', 'error');
+                return;
+            }
+
+            const rounds = state.data.rounds || [];
+            if (requiredRounds < rounds.length) {
+                const extra = rounds.slice(requiredRounds);
+                const hasData = extra.some(r =>
+                    (r.matches || []).length || Object.keys(r.predictions || {}).length ||
+                    Object.values(r.duels || {}).some(pairs => (pairs || []).length)
+                );
+                const message = hasData
+                    ? `Для текущего числа участников нужно ${requiredRounds} туров. Лишние ${extra.length} тур(ов) содержат данные и будут удалены вместе с матчами, прогнозами и результатами. Продолжить?`
+                    : `Для текущего числа участников нужно ${requiredRounds} туров вместо ${rounds.length}. Удалить лишние туры?`;
+                if (!confirm(message)) return;
+                state.data.rounds = rounds.slice(0, requiredRounds);
+            } else if (requiredRounds > rounds.length) {
+                const template = rounds[rounds.length - 1] || rounds[0] || {
+                    isPublished: false, matches: [], predictions: {}, duels: {}
+                };
+                let lastDate = template.startTime ? new Date(template.startTime) : new Date();
+                if (Number.isNaN(lastDate.getTime())) lastDate = new Date();
+                for (let number = rounds.length + 1; number <= requiredRounds; number++) {
+                    lastDate = new Date(lastDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+                    const dateLabel = lastDate.toLocaleDateString('ru-RU', {
+                        day: 'numeric', month: 'long', year: 'numeric'
+                    });
+                    const startTime = `${lastDate.getFullYear()}-${String(lastDate.getMonth()+1).padStart(2,'0')}-${String(lastDate.getDate()).padStart(2,'0')}T18:00`;
+                    state.data.rounds.push({
+                        number,
+                        isPublished: false,
+                        duelDate: dateLabel,
+                        startTime,
+                        matches: [],
+                        duels: {},
+                        predictions: {}
+                    });
+                }
+            }
+
+            // Re-number rounds and assign each generated round once; no repeating fixtures.
+            state.data.rounds.forEach((round, index) => {
+                round.number = index + 1;
+                if (!round.duels) round.duels = {};
+                leagues.forEach(league => {
+                    const schedule = schedulesByLeague[league.code] || [];
+                    round.duels[league.code] = schedule[index] || [];
+                });
+            });
+
+            state.selectedRound = Math.min(state.selectedRound || 1, state.data.rounds.length);
             state.data.duelDrawCompleted = true;
-            await saveState('Круговая жеребьевка (каждый с каждым) успешно проведена на все туры сезона!');
+            await saveState(`Круговая жеребьевка создана: ${requiredRounds} туров по числу подтверждённых участников каждой лиги.`);
         };
 
         window.cancelFullRoundRobinDraw = async function() {
