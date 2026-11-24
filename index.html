@@ -1288,12 +1288,20 @@
 
                                             return `
                                                 <div class="bg-slate-50 p-2.5 rounded-xl space-y-2">
-                                                    <div class="grid grid-cols-11 items-center gap-1 text-xs">
-                                                        <span class="col-span-4 font-extrabold text-slate-900 truncate ${hasAnyResult && s1 > s2 ? 'text-emerald-700' : ''}">${p1 ? `${avatarMarkup(p1, 'w-5 h-5')}<span>${p1.name}</span>` : 'Игрок 1'}</span>
-                                                        <div class="col-span-3 text-center">
-                                                            <span class="inline-block px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-900 font-black font-mono text-xs whitespace-nowrap shadow-sm">${hasAnyResult ? `${s1} : ${s2}` : 'VS'}</span>
+                                                    <div class="grid grid-cols-11 items-center gap-1.5 text-xs">
+                                                        <div class="col-span-4 min-w-0">
+                                                            <span class="inline-flex w-full min-w-0 items-center gap-2 align-middle font-extrabold text-slate-900 ${hasAnyResult && s1 > s2 ? 'text-emerald-700' : ''}">
+                                                                ${p1 ? `${avatarMarkup(p1, 'w-7 h-7')}<span class="relative -top-0.5 min-w-0 truncate">${p1.name}</span>` : '<span class="truncate">Игрок 1</span>'}
+                                                            </span>
                                                         </div>
-                                                        <span class="col-span-4 font-extrabold text-slate-900 truncate text-right ${hasAnyResult && s2 > s1 ? 'text-emerald-700' : ''}">${p2 ? `${avatarMarkup(p2, 'w-5 h-5')}<span>${p2.name}</span>` : 'Игрок 2'}</span>
+                                                        <div class="col-span-3 flex justify-center">
+                                                            <span class="inline-flex items-center justify-center min-w-[42px] px-2.5 py-1.5 rounded-xl bg-indigo-100 text-indigo-900 font-black font-mono text-xs whitespace-nowrap shadow-sm">${hasAnyResult ? `${s1} : ${s2}` : 'VS'}</span>
+                                                        </div>
+                                                        <div class="col-span-4 min-w-0">
+                                                            <span class="inline-flex w-full min-w-0 items-center justify-end gap-2 align-middle font-extrabold text-slate-900 ${hasAnyResult && s2 > s1 ? 'text-emerald-700' : ''}">
+                                                                ${p2 ? `<span class="relative -top-0.5 min-w-0 truncate text-right">${p2.name}</span>${avatarMarkup(p2, 'w-7 h-7')}` : '<span class="truncate">Игрок 2</span>'}
+                                                            </span>
+                                                        </div>
                                                     </div>
 
                                                     ${hasAnyResult ? `
@@ -1861,11 +1869,49 @@
         };
 
         window.deleteUserFromSystem = async function(playerId) {
-            if (!isAdminLoggedIn()) return;
+            if (!isAdminLoggedIn() || !supabaseClient) return;
             const player = getPlayerById(playerId);
             if (!player) return;
-            state.data.players = state.data.players.filter(p => p.id !== playerId);
-            await saveState(`Пользователь ${player.name} полностью удален из системы`);
+            if (!confirm(`Удалить пользователя «${player.name}» из PickArena? Его прогнозы и участие в дуэлях также будут удалены. Это действие нельзя отменить.`)) return;
+
+            // First remove cloud-linked records. If Supabase rejects a deletion,
+            // keep the user in the app state so they are not silently restored.
+            const predictionsDelete = await supabaseClient
+                .from('pickarena_predictions')
+                .delete()
+                .eq('player_id', playerId);
+            if (predictionsDelete.error) {
+                showToast('Не удалось удалить прогнозы пользователя: ' + predictionsDelete.error.message, 'error');
+                return;
+            }
+
+            // Remove the public profile as well; otherwise loadSessionLocal()
+            // would import this player back into state.data.players on refresh.
+            const profileDelete = await supabaseClient
+                .from('pickarena_profiles')
+                .delete()
+                .eq('id', playerId);
+            if (profileDelete.error) {
+                showToast('Не удалось удалить профиль пользователя: ' + profileDelete.error.message, 'error');
+                return;
+            }
+
+            state.data.players = (state.data.players || []).filter(p => p.id !== playerId);
+            state.publicProfiles = state.publicProfiles || {};
+            delete state.publicProfiles[playerId];
+
+            // Remove the user's predictions and duel references from every round.
+            (state.data.rounds || []).forEach(round => {
+                if (round.predictions) delete round.predictions[playerId];
+                if (round.duels && typeof round.duels === 'object') {
+                    Object.keys(round.duels).forEach(leagueCode => {
+                        round.duels[leagueCode] = (round.duels[leagueCode] || []).filter(pair => pair.p1 !== playerId && pair.p2 !== playerId);
+                    });
+                }
+            });
+
+            // Persist the updated shared state and refresh the admin screen.
+            await saveState(`Пользователь ${player.name} и его профиль удалены из PickArena`);
         };
 
         window.toggleUserConfirmation = async function(playerId) {
