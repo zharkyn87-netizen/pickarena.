@@ -670,6 +670,7 @@
             selectedRound: 1,
             adminUsersPage: 1,
             currentAccount: null,
+            publicProfiles: {},
             viewedProfileId: null,
             hasUnsavedPredictions: false,
             data: createInitialTournamentData()
@@ -697,33 +698,59 @@
             const { data: authData } = await supabaseClient.auth.getSession();
             if (authData.session) {
                 const { data: profile } = await supabaseClient.from('pickarena_profiles').select('id, username, display_name, role, league, avatar, favorite_club, bio').eq('id', authData.session.user.id).single();
-                if (profile) state.currentAccount = { role: profile.role, id: profile.id, name: profile.display_name, login: profile.username };
+                if (profile) state.currentAccount = { role: profile.role, id: profile.id, name: profile.display_name, login: profile.username, avatar: profile.avatar || '' };
             }
             const { data: cloudState, error } = await supabaseClient.from('pickarena_state').select('data').eq('id', 1).maybeSingle();
             if (!error && cloudState && cloudState.data) state.data = cloudState.data;
             else if (state.currentAccount && state.currentAccount.role === 'admin') { await supabaseClient.from('pickarena_state').upsert({ id: 1, data: state.data }); }
 
-            // Load public profile fields for every authenticated user so everyone sees
-            // each participant's current avatar, not only their own cached avatar.
+            // Load public profile fields for every authenticated user.
+            // Keep all profiles separately so admins can have avatars without
+            // being inserted into the tournament roster.
             const { data: publicProfiles, error: publicProfilesError } = await supabaseClient
                 .from('pickarena_profiles')
                 .select('id, username, display_name, role, league, avatar, favorite_club, bio');
+
+            state.publicProfiles = {};
             if (!publicProfilesError && Array.isArray(publicProfiles)) {
                 publicProfiles.forEach(profileRow => {
-                    if (profileRow.role === 'admin') return;
+                    state.publicProfiles[profileRow.id] = profileRow;
+
+                    // Only player accounts belong in the tournament roster.
+                    if (profileRow.role !== 'player') return;
+
                     let player = state.data.players.find(p => p.id === profileRow.id);
                     if (!player) {
-                        player = { id: profileRow.id, name: profileRow.display_name || profileRow.username || 'Участник', login: profileRow.username || '', league: profileRow.league || '', favoriteClub: profileRow.favorite_club || 'Не указан', bio: profileRow.bio || '', avatar: profileRow.avatar || '', awards: [], isConfirmed: false };
+                        player = {
+                            id: profileRow.id,
+                            name: profileRow.display_name || profileRow.username || 'Участник',
+                            login: profileRow.username || '',
+                            league: profileRow.league || '',
+                            favoriteClub: profileRow.favorite_club || 'Не указан',
+                            bio: profileRow.bio || '',
+                            avatar: profileRow.avatar || '',
+                            awards: [],
+                            isConfirmed: false
+                        };
                         state.data.players.push(player);
                     } else {
                         player.name = profileRow.display_name || player.name;
                         player.login = profileRow.username || player.login;
                         player.league = profileRow.league || player.league || '';
-                        player.avatar = profileRow.avatar || '';
+                        // Do not erase a previously saved avatar if profile.avatar is empty.
+                        player.avatar = profileRow.avatar || player.avatar || '';
                         player.favoriteClub = profileRow.favorite_club || player.favoriteClub || 'Не указан';
                         player.bio = profileRow.bio || player.bio || '';
                     }
                 });
+            } else if (publicProfilesError) {
+                console.error('Не удалось загрузить публичные профили:', publicProfilesError);
+            }
+
+            // Keep the signed-in account's latest avatar available for the header,
+            // including when the signed-in account is an administrator.
+            if (state.currentAccount && state.publicProfiles[state.currentAccount.id]) {
+                state.currentAccount.avatar = state.publicProfiles[state.currentAccount.id].avatar || state.currentAccount.avatar || '';
             }
 
             if (state.currentAccount && state.currentAccount.role === 'player') {
@@ -788,8 +815,12 @@
         function getPlayerById(id) {
             return (state.data.players || []).find(p => p.id === id);
         }
+        function getProfileById(id) {
+            return id && state.publicProfiles ? state.publicProfiles[id] : null;
+        }
         function avatarMarkup(player, size = 'w-7 h-7') {
-            const src = player && player.avatar ? String(player.avatar) : '';
+            const profile = player && player.id ? getProfileById(player.id) : null;
+            const src = (player && player.avatar) || (profile && profile.avatar) || '';
             return `<span class="${size} rounded-full overflow-hidden bg-emerald-100 text-emerald-700 inline-flex items-center justify-center shrink-0">${src ? `<img src="${src}" alt="" class="w-full h-full object-cover" onerror="this.onerror=null;this.parentElement.textContent='⚽'">` : '⚽'}</span>`;
         }
         function playerStatsMarkup(playerId) {
@@ -883,7 +914,7 @@
                 const accName = state.currentAccount.role === 'admin' ? 'Админ' : (getPlayerById(state.currentAccount.id)?.name || state.currentAccount.name);
                 authWidget.innerHTML = `
                     <div class="flex items-center gap-2 bg-emerald-50 px-2.5 sm:px-3 py-1.5 rounded-2xl">
-                        ${state.currentAccount.role === 'player' ? avatarMarkup(getPlayerById(state.currentAccount.id), 'w-6 h-6 sm:w-7 sm:h-7') : '<div class="w-6 h-6 sm:w-7 sm:h-7 rounded-full gold-gradient text-white flex items-center justify-center font-black text-xs shrink-0">👑</div>'}
+                        ${state.currentAccount.role === 'player' ? avatarMarkup(getPlayerById(state.currentAccount.id) || state.currentAccount, 'w-6 h-6 sm:w-7 sm:h-7') : (state.currentAccount.avatar ? avatarMarkup(state.currentAccount, 'w-6 h-6 sm:w-7 sm:h-7') : '<div class="w-6 h-6 sm:w-7 sm:h-7 rounded-full gold-gradient text-white flex items-center justify-center font-black text-xs shrink-0">👑</div>')}
                         <span class="text-xs font-extrabold text-slate-900 max-w-[85px] sm:max-w-[120px] truncate">${accName}</span>
                         <button onclick="logoutAccount()" class="text-rose-600 hover:text-rose-800 font-extrabold ml-1 text-[11px] sm:text-xs">Выйти</button>
                     </div>
@@ -2258,6 +2289,13 @@
             player.avatar = avatar || '';
             player.favoriteClub = favoriteClub || 'Не указан';
             player.bio = bio || '';
+            if (state.publicProfiles && state.publicProfiles[state.currentAccount.id]) {
+                state.publicProfiles[state.currentAccount.id].display_name = player.name;
+                state.publicProfiles[state.currentAccount.id].avatar = player.avatar;
+                state.publicProfiles[state.currentAccount.id].favorite_club = player.favoriteClub;
+                state.publicProfiles[state.currentAccount.id].bio = player.bio;
+            }
+            state.currentAccount.avatar = player.avatar;
             state.currentAccount.name = player.name;
             saveSessionLocal();
             renderAll();
