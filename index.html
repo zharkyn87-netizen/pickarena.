@@ -118,7 +118,7 @@
         <div class="bg-white text-slate-900 rounded-3xl max-w-sm w-full p-6 shadow-2xl relative text-center">
             <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 font-black text-xl mb-3">⚠️</div>
             <h3 class="text-lg font-black tracking-tight text-slate-900">Сбросить весь сезон?</h3>
-            <p class="text-xs text-slate-500 mt-1 mb-6">Это действие полностью сотрет все результаты матчей, прогнозы и вернет турнир к начальным настройкам.</p>
+            <p class="text-xs text-slate-500 mt-1 mb-6">Это действие очистит результаты матчей, прогнозы и жеребьевку. Пользователи, лиги и накопленные награды сохранятся.</p>
             <div class="flex gap-2">
                 <button onclick="closeResetConfirmModal()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">Отмена</button>
                 <button onclick="executeResetSeason()" class="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs transition shadow-md shadow-rose-600/25">Сбросить</button>
@@ -248,7 +248,7 @@
                         <div class="grid grid-cols-11 items-center gap-1.5 sm:gap-3 text-center my-2">
                             <div class="col-span-4 bg-white/15 backdrop-blur-sm rounded-2xl p-3 sm:p-4">
                                 <span class="text-[10px] text-sky-200 block font-extrabold uppercase mb-1">Хозяин</span>
-                                <span class="font-black text-xs sm:text-base text-white truncate block" id="home-duel-p1-name">Алексей</span>
+                                <span class="font-black text-xs sm:text-base text-white truncate block" id="home-duel-p1-name" class="font-black text-xs sm:text-base text-white truncate block inline-flex items-center gap-1">Алексей</span>
                             </div>
                             <div class="col-span-3 flex flex-col items-center justify-center">
                                 <div class="px-3 py-1.5 rounded-2xl bg-amber-400 text-slate-950 text-lg sm:text-2xl font-black font-mono shadow-md whitespace-nowrap" id="home-duel-score">0 : 0</div>
@@ -256,7 +256,7 @@
                             </div>
                             <div class="col-span-4 bg-white/15 backdrop-blur-sm rounded-2xl p-3 sm:p-4">
                                 <span class="text-[10px] text-sky-200 block font-extrabold uppercase mb-1">Гость</span>
-                                <span class="font-black text-xs sm:text-base text-white truncate block" id="home-duel-p2-name">Дмитрий</span>
+                                <span class="font-black text-xs sm:text-base text-white truncate block" id="home-duel-p2-name" class="font-black text-xs sm:text-base text-white truncate block inline-flex items-center gap-1">Дмитрий</span>
                             </div>
                         </div>
                     </div>
@@ -299,14 +299,14 @@
                 <div class="grid grid-cols-11 items-center gap-2 bg-white/15 backdrop-blur-sm p-3.5 sm:p-4 rounded-2xl">
                     <div class="col-span-4 text-left">
                         <span class="text-[10px] text-sky-200 block font-extrabold uppercase">Вы</span>
-                        <span class="font-black text-xs sm:text-sm text-white truncate block" id="pred-my-name">—</span>
+                        <span class="font-black text-xs sm:text-sm text-white truncate block" id="pred-my-name" class="font-black text-xs sm:text-sm text-white truncate block inline-flex items-center gap-1">—</span>
                     </div>
                     <div class="col-span-3 text-center">
                         <span class="inline-block px-3 py-1 rounded-xl bg-amber-400 text-slate-950 font-mono font-black text-base sm:text-xl whitespace-nowrap shadow-sm" id="pred-duel-score-val">0 : 0</span>
                     </div>
                     <div class="col-span-4 text-right">
                         <span class="text-[10px] text-sky-200 block font-extrabold uppercase">Соперник</span>
-                        <span class="font-black text-xs sm:text-sm text-white truncate block" id="pred-rival-name">—</span>
+                        <span class="font-black text-xs sm:text-sm text-white truncate block" id="pred-rival-name" class="font-black text-xs sm:text-sm text-white truncate block inline-flex items-center gap-1">—</span>
                     </div>
                 </div>
             </div>
@@ -502,10 +502,10 @@
                     <div class="bg-violet-50/70 rounded-2xl p-4 sm:p-5 space-y-4">
                         <div class="flex items-center justify-between">
                             <h3 class="text-xs font-extrabold text-violet-900 uppercase tracking-wider">🎲 Жеребьевка дуэлей (Каждый с каждым)</h3>
-                            <span class="text-xs text-violet-800 font-extrabold" id="admin-draw-round-label">Тур 1</span>
                         </div>
                         <p class="text-xs text-slate-600 font-medium">Автоматически составить круговой календарь (каждый с каждым) для всех лиг на все туры турнира.</p>
                         <button onclick="performFullRoundRobinDraw()" class="w-full py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-extrabold rounded-xl text-xs transition shadow-sm">🎲 Провести жеребьевку на все туры</button>
+                        <button onclick="cancelFullRoundRobinDraw()" class="w-full py-2.5 bg-rose-100 hover:bg-rose-200 text-rose-800 font-extrabold rounded-xl text-xs transition shadow-sm">↩️ Отменить жеребьёвку</button>
                         <div class="space-y-3 bg-white p-4 rounded-2xl shadow-sm" id="admin-draw-preview-container">
                             <!-- Rendered by JS -->
                         </div>
@@ -764,6 +764,25 @@
         function getPlayerById(id) {
             return (state.data.players || []).find(p => p.id === id);
         }
+        function avatarMarkup(player, size = 'w-7 h-7') {
+            const src = player && player.avatar ? String(player.avatar) : '';
+            return `<span class="${size} rounded-full overflow-hidden bg-emerald-100 text-emerald-700 inline-flex items-center justify-center shrink-0">${src ? `<img src="${src}" alt="" class="w-full h-full object-cover" onerror="this.onerror=null;this.parentElement.textContent='⚽'">` : '⚽'}</span>`;
+        }
+        function playerStatsMarkup(playerId) {
+            let predictions=0, graded=0, correct=0, wins=0, draws=0, losses=0, points=0;
+            const player=getPlayerById(playerId);
+            (state.data.rounds||[]).forEach(round=>{
+                const picks=round.predictions?.[playerId]||{};
+                (round.matches||[]).forEach(m=>{if(picks[m.id])predictions++;if(m.result){graded++;if(picks[m.id]===m.result)correct++;}});
+                const pair=player&&round.duels?.[player.league]?.find(d=>d.p1===playerId||d.p2===playerId);
+                if(pair&&(round.matches||[]).some(m=>m.result)){
+                    let a=0,b=0;(round.matches||[]).forEach(m=>{if(m.result){if(round.predictions?.[pair.p1]?.[m.id]===m.result)a++;if(round.predictions?.[pair.p2]?.[m.id]===m.result)b++;}});
+                    const mine=pair.p1===playerId?a:b,other=pair.p1===playerId?b:a;if(mine>other){wins++;points+=3;}else if(mine===other){draws++;points+=1;}else losses++;
+                }
+            });
+            const awards=(player?.awards||[]).length, accuracy=graded?Math.round(correct/graded*100):0;
+            return `<div class="grid grid-cols-2 gap-2 text-xs"><div class="bg-white rounded-xl p-2"><span class="text-slate-500 block">Прогнозы</span><b>${predictions}</b></div><div class="bg-white rounded-xl p-2"><span class="text-slate-500 block">Верные</span><b>${correct}</b></div><div class="bg-white rounded-xl p-2"><span class="text-slate-500 block">Точность</span><b>${accuracy}%</b></div><div class="bg-white rounded-xl p-2"><span class="text-slate-500 block">Матчапы В/Н/П</span><b>${wins}/${draws}/${losses}</b></div><div class="bg-white rounded-xl p-2"><span class="text-slate-500 block">Общие очки</span><b>${points}</b></div><div class="bg-white rounded-xl p-2"><span class="text-slate-500 block">Награды</span><b>${awards}</b></div></div>`;
+        }
 
         function formatPlayersCount(count) {
             if (count === 1) return '1 участник';
@@ -840,7 +859,7 @@
                 const accName = state.currentAccount.role === 'admin' ? 'Админ' : (getPlayerById(state.currentAccount.id)?.name || state.currentAccount.name);
                 authWidget.innerHTML = `
                     <div class="flex items-center gap-2 bg-emerald-50 px-2.5 sm:px-3 py-1.5 rounded-2xl">
-                        <div class="w-6 h-6 sm:w-7 sm:h-7 rounded-full pitch-gradient text-white flex items-center justify-center font-black text-xs shrink-0">⚽</div>
+                        ${state.currentAccount.role === 'player' ? avatarMarkup(getPlayerById(state.currentAccount.id), 'w-6 h-6 sm:w-7 sm:h-7') : '<div class="w-6 h-6 sm:w-7 sm:h-7 rounded-full gold-gradient text-white flex items-center justify-center font-black text-xs shrink-0">👑</div>'}
                         <span class="text-xs font-extrabold text-slate-900 max-w-[85px] sm:max-w-[120px] truncate">${accName}</span>
                         <button onclick="logoutAccount()" class="text-rose-600 hover:text-rose-800 font-extrabold ml-1 text-[11px] sm:text-xs">Выйти</button>
                     </div>
@@ -948,8 +967,8 @@
                     if (foundPair) {
                         const p1Obj = getPlayerById(foundPair.p1);
                         const p2Obj = getPlayerById(foundPair.p2);
-                        if (p1NameEl) p1NameEl.textContent = p1Obj ? p1Obj.name : 'Игрок 1';
-                        if (p2NameEl) p2NameEl.textContent = p2Obj ? p2Obj.name : 'Игрок 2';
+                        if (p1NameEl) p1NameEl.innerHTML = p1Obj ? `${avatarMarkup(p1Obj, 'w-6 h-6')}<span>${p1Obj.name}</span>` : 'Игрок 1';
+                        if (p2NameEl) p2NameEl.innerHTML = p2Obj ? `${avatarMarkup(p2Obj, 'w-6 h-6')}<span>${p2Obj.name}</span>` : 'Игрок 2';
 
                         let s1 = 0, s2 = 0;
                         round.matches.forEach(m => {
@@ -962,7 +981,7 @@
                         });
                         if (scoreEl) scoreEl.textContent = `${s1} : ${s2}`;
                     } else {
-                        if (p1NameEl) p1NameEl.textContent = myPlayerObj ? myPlayerObj.name : 'Участник';
+                        if (p1NameEl) p1NameEl.innerHTML = myPlayerObj ? `${avatarMarkup(myPlayerObj, 'w-6 h-6')}<span>${myPlayerObj.name}</span>` : 'Участник';
                         if (p2NameEl) p2NameEl.textContent = 'Нет пары в туре';
                         if (scoreEl) scoreEl.textContent = '— : —';
                     }
@@ -980,7 +999,7 @@
                     <div onclick="viewPlayerProfile('${row.id}')" class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 hover:bg-emerald-50/70 cursor-pointer transition text-xs">
                         <div class="flex items-center gap-2 min-w-0">
                             <span class="w-5 h-5 rounded-lg ${rankColors[idx] || rankColors[3]} flex items-center justify-center font-black text-[11px] shrink-0">${idx + 1}</span>
-                            <span class="font-extrabold text-slate-900 truncate">${row.name}</span>
+                            <span class="font-extrabold text-slate-900 truncate inline-flex items-center gap-1.5">${avatarMarkup(getPlayerById(row.id), 'w-6 h-6')}<span>${row.name}</span></span>
                         </div>
                         <span class="font-black text-emerald-700 shrink-0 ml-2">${row.points} очк.</span>
                     </div>
@@ -1023,7 +1042,7 @@
             const myNameEl = document.getElementById('pred-my-name');
             const rivalNameEl = document.getElementById('pred-rival-name');
             const scoreValEl = document.getElementById('pred-duel-score-val');
-            if (myNameEl) myNameEl.textContent = isAdmin ? '👑 Админ' : (myPlayer ? myPlayer.name : 'Гость');
+            if (myNameEl) myNameEl.innerHTML = isAdmin ? '👑 Админ' : (myPlayer ? `${avatarMarkup(myPlayer, 'w-6 h-6')}<span>${myPlayer.name}</span>` : 'Гость');
 
             let foundPair = null;
             if (myPlayer && round.duels && round.duels[myPlayer.league || 'A']) {
@@ -1034,7 +1053,7 @@
                 const rivalId = foundPair.p1 === myPlayerId ? foundPair.p2 : foundPair.p1;
                 rivalPlayer = getPlayerById(rivalId);
             }
-            if (rivalNameEl) rivalNameEl.textContent = rivalPlayer ? rivalPlayer.name : '—';
+            if (rivalNameEl) rivalNameEl.innerHTML = rivalPlayer ? `${avatarMarkup(rivalPlayer, 'w-6 h-6')}<span>${rivalPlayer.name}</span>` : '—';
 
             if (foundPair && myPlayerId) {
                 let s1 = 0, s2 = 0;
@@ -1175,7 +1194,7 @@
             const container = document.getElementById('duels-schedule-container');
             if (!container) return;
             if (state.data.duelDrawCompleted !== true) {
-                container.innerHTML = '<div class="bg-indigo-50 rounded-2xl p-6 text-center text-sm font-bold text-indigo-800">Матчапы появятся после того, как администратор проведёт жеребьёвку на все туры.</div>';
+                container.innerHTML = '<div class="bg-indigo-50 rounded-2xl p-6 text-center text-sm font-bold text-indigo-800">Жеребьёвка еще не проведена</div>';
                 return;
             }
 
@@ -1215,11 +1234,11 @@
                                             return `
                                                 <div class="bg-slate-50 p-2.5 rounded-xl space-y-2">
                                                     <div class="grid grid-cols-11 items-center gap-1 text-xs">
-                                                        <span class="col-span-4 font-extrabold text-slate-900 truncate ${hasAnyResult && s1 > s2 ? 'text-emerald-700' : ''}">${p1 ? p1.name : 'Игрок 1'}</span>
+                                                        <span class="col-span-4 font-extrabold text-slate-900 truncate ${hasAnyResult && s1 > s2 ? 'text-emerald-700' : ''}">${p1 ? `${avatarMarkup(p1, 'w-5 h-5')}<span>${p1.name}</span>` : 'Игрок 1'}</span>
                                                         <div class="col-span-3 text-center">
                                                             <span class="inline-block px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-900 font-black font-mono text-xs whitespace-nowrap shadow-sm">${hasAnyResult ? `${s1} : ${s2}` : 'VS'}</span>
                                                         </div>
-                                                        <span class="col-span-4 font-extrabold text-slate-900 truncate text-right ${hasAnyResult && s2 > s1 ? 'text-emerald-700' : ''}">${p2 ? p2.name : 'Игрок 2'}</span>
+                                                        <span class="col-span-4 font-extrabold text-slate-900 truncate text-right ${hasAnyResult && s2 > s1 ? 'text-emerald-700' : ''}">${p2 ? `${avatarMarkup(p2, 'w-5 h-5')}<span>${p2.name}</span>` : 'Игрок 2'}</span>
                                                     </div>
 
                                                     ${hasAnyResult ? `
@@ -1304,7 +1323,7 @@
                                     ${standings.length === 0 ? '<tr><td colspan="7" class="py-4 text-center text-slate-500 italic">Нет участников</td></tr>' : standings.map((row, idx) => `
                                         <tr class="hover:bg-emerald-50/60 transition">
                                             <td class="py-3 px-2.5 sm:px-3 font-black text-emerald-700">${idx + 1}</td>
-                                            <td class="py-3 px-2.5 sm:px-3 font-extrabold text-slate-900 cursor-pointer hover:text-emerald-700 max-w-[120px] sm:max-w-none truncate" onclick="viewPlayerProfile('${row.id}')">${row.name}</td>
+                                            <td class="py-3 px-2.5 sm:px-3 font-extrabold text-slate-900 cursor-pointer hover:text-emerald-700 max-w-[120px] sm:max-w-none truncate" onclick="viewPlayerProfile('${row.id}')">${avatarMarkup(getPlayerById(row.id), 'w-6 h-6')}<span class="ml-1">${row.name}</span></td>
                                             <td class="py-3 px-2 text-center font-bold text-slate-700">${row.played}</td>
                                             <td class="py-3 px-2 text-center font-extrabold text-emerald-700">${row.wins}</td>
                                             <td class="py-3 px-2 text-center font-extrabold text-amber-600">${row.draws}</td>
@@ -1548,6 +1567,7 @@
                                 }).join('')}
                             </div>
                         </div>
+                        <div class="pt-3 border-t border-emerald-200/70 space-y-2"><span class="text-xs font-extrabold text-emerald-900 block">Статистика за сезон</span>${playerStatsMarkup(player.id)}</div>
                     </div>
 
                     ${isMyProfile ? `
@@ -1636,10 +1656,10 @@
             if (adminUsersList) {
                 adminUsersList.innerHTML = pagePlayers.length === 0 ? '<div class="text-xs text-slate-400 italic py-2">Нет зарегистрированных пользователей</div>' : pagePlayers.map(p => `
                     <div class="bg-white rounded-2xl p-3 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                        <div class="min-w-0">
-                            <span class="font-extrabold text-slate-900 block truncate">${p.name}</span>
+                        <div class="min-w-0 flex items-center gap-2">
+                            ${avatarMarkup(p, 'w-8 h-8')}<div class="min-w-0"><span class="font-extrabold text-slate-900 block truncate">${p.name}</span>
                             <span class="text-[11px] text-slate-400 font-mono block truncate">@${p.login || p.id} | Пароль: <span class="text-emerald-600 font-bold">${p.password || '1234'}</span></span>
-                            <span class="text-[10px] px-2 py-0.5 rounded-full inline-block mt-1 font-bold ${p.isConfirmed ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}">${p.isConfirmed ? 'Подтвержден' : 'Ожидает'}</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full inline-block mt-1 font-bold ${p.isConfirmed ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}">${p.isConfirmed ? 'Подтвержден' : 'Ожидает'}</span></div>
                         </div>
                         <div class="flex items-center gap-1.5 shrink-0">
                             <button onclick="toggleUserConfirmation('${p.id}')" class="px-3 py-1.5 rounded-xl font-extrabold transition ${p.isConfirmed ? 'bg-amber-50 text-amber-700 hover:bg-amber-100' : 'bg-emerald-600 text-white hover:bg-emerald-700'}">${p.isConfirmed ? 'Снять' : 'Подтвердить'}</button>
@@ -1695,7 +1715,7 @@
                             <div class="space-y-1.5 max-h-40 overflow-y-auto">
                                 ${leaguePlayers.length === 0 ? '<div class="text-[11px] text-slate-400 italic">Нет участников</div>' : leaguePlayers.map(p => `
                                     <div class="flex items-center justify-between p-2 rounded-xl bg-slate-50 text-xs">
-                                        <span class="font-bold text-slate-800 truncate">${p.name}</span>
+                                        <span class="font-bold text-slate-800 truncate inline-flex items-center gap-1.5">${avatarMarkup(p, 'w-6 h-6')}<span>${p.name}</span></span>
                                         <button onclick="removePlayerAdmin('${p.id}')" class="text-rose-600 hover:text-rose-700 font-extrabold text-[11px] shrink-0 ml-2">Удалить</button>
                                     </div>
                                 `).join('')}
@@ -1706,9 +1726,7 @@
             }
 
             // Duel Draw Preview in Admin
-            const drawRoundLabel = document.getElementById('admin-draw-round-label');
             const drawPreviewContainer = document.getElementById('admin-draw-preview-container');
-            if (drawRoundLabel) drawRoundLabel.textContent = `Тур ${round.number}`;
             if (drawPreviewContainer) {
                 const roundDuels = round.duels || {};
                 drawPreviewContainer.innerHTML = state.data.leagues.map(l => {
@@ -1868,24 +1886,20 @@
             const awardType = document.getElementById('admin-award-type')?.value;
             const player = getPlayerById(playerId);
             if (!player || !awardType) return;
-
-            if (!player.awards) player.awards = [];
-            if (!player.awards.includes(awardType)) {
-                player.awards.push(awardType);
-                await saveState(`Награда успешно выдана участнику ${player.name}!`);
-            } else {
-                showToast('У этого участника уже есть такая награда', 'error');
-            }
+            if (!Array.isArray(player.awards)) player.awards = [];
+            // Awards are a cumulative collection: the same award can be earned again in another season.
+            player.awards.push(awardType);
+            await saveState(`Награда добавлена в накопительную коллекцию участника ${player.name}!`);
         };
-
         window.revokeAwardAdmin = async function(playerId, awardType) {
             if (!isAdminLoggedIn()) return;
             const player = getPlayerById(playerId);
-            if (!player || !player.awards) return;
-            player.awards = player.awards.filter(a => a !== awardType);
-            await saveState(`Награда удалена у участника ${player.name}`);
+            if (!player || !Array.isArray(player.awards)) return;
+            const awardIndex = player.awards.indexOf(awardType);
+            if (awardIndex < 0) return;
+            player.awards.splice(awardIndex, 1);
+            await saveState(`Одна награда удалена у участника ${player.name}`);
         };
-
         window.updateMatchTeam = function(matchId, field, value) {
             if (!isAdminLoggedIn()) return;
             state.data.rounds.forEach(r => {
@@ -2023,6 +2037,14 @@
             await saveState('Круговая жеребьевка (каждый с каждым) успешно проведена на все туры сезона!');
         };
 
+        window.cancelFullRoundRobinDraw = async function() {
+            if (!isAdminLoggedIn()) return;
+            if (!confirm('Отменить жеребьёвку на все туры и очистить матчапы?')) return;
+            (state.data.rounds || []).forEach(round => { round.duels = {}; });
+            state.data.duelDrawCompleted = false;
+            await saveState('Жеребьёвка отменена. Матчапы очищены.');
+        };
+
         window.simulateRoundResults = async function() {
             if (!isAdminLoggedIn()) return;
             const round = state.data.rounds.find(r => r.number === state.selectedRound);
@@ -2051,13 +2073,16 @@
         window.executeResetSeason = async function() {
             if (!isAdminLoggedIn()) return;
             window.closeResetConfirmModal();
-            localStorage.removeItem('predict_league_app_data');
-            localStorage.removeItem('predict_league_session');
-            state.data = createInitialTournamentData();
-            state.currentAccount = null;
+            // Preserve accounts, profiles, leagues, players and accumulated awards.
+            (state.data.rounds || []).forEach(round => {
+                round.isPublished = false;
+                round.duels = {};
+                round.predictions = {};
+                (round.matches || []).forEach(match => { match.result = ''; });
+            });
+            state.data.duelDrawCompleted = false;
             state.selectedRound = 1;
-            renderAll();
-            showToast('Сезон полностью сброшен к начальному состоянию!');
+            await saveState('Сезон сброшен. Пользователи, лиги и накопленные награды сохранены.');
         };
 
         window.selectRound = function(num) {
