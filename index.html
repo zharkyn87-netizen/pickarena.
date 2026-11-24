@@ -702,6 +702,30 @@
             const { data: cloudState, error } = await supabaseClient.from('pickarena_state').select('data').eq('id', 1).maybeSingle();
             if (!error && cloudState && cloudState.data) state.data = cloudState.data;
             else if (state.currentAccount && state.currentAccount.role === 'admin') { await supabaseClient.from('pickarena_state').upsert({ id: 1, data: state.data }); }
+
+            // Load public profile fields for every authenticated user so everyone sees
+            // each participant's current avatar, not only their own cached avatar.
+            const { data: publicProfiles, error: publicProfilesError } = await supabaseClient
+                .from('pickarena_profiles')
+                .select('id, username, display_name, role, league, avatar, favorite_club, bio');
+            if (!publicProfilesError && Array.isArray(publicProfiles)) {
+                publicProfiles.forEach(profileRow => {
+                    if (profileRow.role === 'admin') return;
+                    let player = state.data.players.find(p => p.id === profileRow.id);
+                    if (!player) {
+                        player = { id: profileRow.id, name: profileRow.display_name || profileRow.username || 'Участник', login: profileRow.username || '', league: profileRow.league || '', favoriteClub: profileRow.favorite_club || 'Не указан', bio: profileRow.bio || '', avatar: profileRow.avatar || '', awards: [], isConfirmed: false };
+                        state.data.players.push(player);
+                    } else {
+                        player.name = profileRow.display_name || player.name;
+                        player.login = profileRow.username || player.login;
+                        player.league = profileRow.league || player.league || '';
+                        player.avatar = profileRow.avatar || '';
+                        player.favoriteClub = profileRow.favorite_club || player.favoriteClub || 'Не указан';
+                        player.bio = profileRow.bio || player.bio || '';
+                    }
+                });
+            }
+
             if (state.currentAccount && state.currentAccount.role === 'player') {
                 const { data: rows } = await supabaseClient.from('pickarena_predictions').select('round_number, predictions').eq('player_id', state.currentAccount.id);
                 (rows || []).forEach(row => {
