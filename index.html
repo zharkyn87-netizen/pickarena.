@@ -777,7 +777,8 @@
                     });
                 }
                 const { data: me } = await supabaseClient.from('pickarena_profiles').select('id, username, display_name, role, league, avatar, favorite_club, bio').eq('id', state.currentAccount.id).single();
-                if (me) {
+                // Never add an administrator to the tournament roster.
+                if (me && me.role === 'player') {
                     let player = state.data.players.find(p => p.id === me.id);
                     if (!player) {
                         player = { id: me.id, name: me.display_name, login: me.username, league: me.league || '', favoriteClub: 'Не указан', bio: '', avatar: '', awards: [], isConfirmed: false };
@@ -786,9 +787,12 @@
                     player.name = me.display_name || player.name;
                     player.login = me.username || player.login;
                     player.league = me.league || '';
-                    player.avatar = me.avatar || '';
-                    player.favoriteClub = me.favorite_club || 'Не указан';
-                    player.bio = me.bio || '';
+                    player.avatar = me.avatar || player.avatar || '';
+                    player.favoriteClub = me.favorite_club || player.favoriteClub || 'Не указан';
+                    player.bio = me.bio || player.bio || '';
+                } else if (me && me.role === 'admin') {
+                    state.data.players = (state.data.players || []).filter(p => p.id !== me.id);
+                    (state.data.rounds || []).forEach(round => { if (round.predictions) delete round.predictions[me.id]; });
                 }
             }
         }
@@ -797,8 +801,17 @@
             if (!state.currentAccount) { showToast('Войдите в аккаунт', 'error'); return; }
             let error = null;
             if (state.currentAccount.role === 'admin') {
-                const result = await supabaseClient.from('pickarena_state').upsert({ id: 1, data: state.data, updated_at: new Date().toISOString() });
+                // Update the existing shared-state row instead of upsert, which may
+                // invoke INSERT RLS and fail even when the row already exists.
+                const result = await supabaseClient.from('pickarena_state')
+                    .update({ data: state.data, updated_at: new Date().toISOString() })
+                    .eq('id', 1)
+                    .select('id');
                 error = result.error;
+                if (!error && (!result.data || result.data.length === 0)) {
+                    showToast('Общее состояние не сохранено: строка id=1 отсутствует или UPDATE запрещён политикой RLS.', 'error');
+                    return;
+                }
             } else {
                 const round = state.data.rounds.find(r => r.number === state.selectedRound);
                 const predictions = round?.predictions?.[state.currentAccount.id] || {};
